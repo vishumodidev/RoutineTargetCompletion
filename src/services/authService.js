@@ -2,6 +2,9 @@ import { auth, db, isFirebaseEnabled } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { mockDb } from '../utils/mockDb';
+import api from './api';
+
+const isSheetsEnabled = !!import.meta.env.VITE_API_URL;
 
 export const authService = {
   login: async (email, password) => {
@@ -44,6 +47,14 @@ export const authService = {
       } catch (err) {
         throw new Error(err.message || 'Login failed');
       }
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.post('', { action: 'login', email, password });
+        if (!res.data.success) throw new Error(res.data.error || 'Login failed');
+        return res.data.user;
+      } catch (err) {
+        throw new Error(err.message || 'Login failed');
+      }
     } else {
       // Mock db implementation
       return new Promise((resolve, reject) => {
@@ -79,6 +90,14 @@ export const authService = {
         
         await setDoc(doc(db, 'users', uid), newProfile);
         return newProfile;
+      } catch (err) {
+        throw new Error(err.message || 'Registration failed');
+      }
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.post('', { action: 'register', name, email, password });
+        if (!res.data.success) throw new Error(res.data.error || 'Registration failed');
+        return res.data.user;
       } catch (err) {
         throw new Error(err.message || 'Registration failed');
       }

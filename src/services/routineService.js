@@ -1,4 +1,7 @@
 import { mockDb } from '../utils/mockDb';
+import api from './api';
+
+const isSheetsEnabled = !!import.meta.env.VITE_API_URL;
 
 export const ROUTINE_TEMPLATES = {
   weekday: [
@@ -54,18 +57,38 @@ export const PRIORITY_FORMULA = [
 
 export const routineService = {
   getRoutineLogs: async (userId, date) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(mockDb.getRoutineLogs(userId, date));
-      }, 200);
-    });
+    if (isSheetsEnabled) {
+      try {
+        const res = await api.get('', { params: { action: 'routineLogs', userId, date } });
+        if (!res.data.success) throw new Error(res.data.error || 'Failed to fetch routine logs');
+        return res.data.logs;
+      } catch (err) {
+        throw new Error(err.message || 'Failed to fetch routine logs');
+      }
+    } else {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(mockDb.getRoutineLogs(userId, date));
+        }, 200);
+      });
+    }
   },
 
   toggleRoutineActivity: async (userId, activityId, date, completed, xpReward) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(mockDb.logRoutineActivity(userId, activityId, date, completed, xpReward));
-      }, 200);
-    });
+    if (isSheetsEnabled) {
+      try {
+        const res = await api.post('', { action: 'logRoutine', userId, activityId, date, completed, xpReward });
+        if (!res.data.success) throw new Error(res.data.error || 'Failed to log routine activity');
+        return res.data;
+      } catch (err) {
+        throw new Error(err.message || 'Failed to log routine activity');
+      }
+    } else {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(mockDb.logRoutineActivity(userId, activityId, date, completed, xpReward));
+        }, 200);
+      });
+    }
   }
 };

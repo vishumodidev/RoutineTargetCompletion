@@ -13,6 +13,9 @@ import {
 } from 'firebase/firestore';
 import { mockDb } from '../utils/mockDb';
 import { getLevelDetails } from '../utils';
+import api from './api';
+
+const isSheetsEnabled = !!import.meta.env.VITE_API_URL;
 
 // Helper to calculate streak from logs array
 function calculateStreakFromLogs(userLogs) {
@@ -121,6 +124,14 @@ export const habitService = {
       } catch (err) {
         throw new Error(err.message || 'Failed to fetch habits');
       }
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.get('', { params: { action: 'habits', userId } });
+        if (!res.data.success) throw new Error(res.data.error || 'Failed to fetch habits');
+        return res.data.habits;
+      } catch (err) {
+        throw new Error(err.message || 'Failed to fetch habits');
+      }
     } else {
       return new Promise((resolve) => {
         setTimeout(() => {
@@ -145,6 +156,14 @@ export const habitService = {
         };
         await setDoc(doc(db, 'habits', habitId), newHabit);
         return newHabit;
+      } catch (err) {
+        throw new Error(err.message || 'Failed to create habit');
+      }
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.post('', { action: 'createHabit', userId, habitName, description, category, xpReward });
+        if (!res.data.success) throw new Error(res.data.error || 'Failed to create habit');
+        return res.data.habit;
       } catch (err) {
         throw new Error(err.message || 'Failed to create habit');
       }
@@ -177,6 +196,14 @@ export const habitService = {
       } catch (err) {
         throw new Error(err.message || 'Failed to update habit');
       }
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.post('', { action: 'updateHabit', habitId, userId, habitName, description, category, xpReward, status });
+        if (!res.data.success) throw new Error(res.data.error || 'Failed to update habit');
+        return res.data.habit;
+      } catch (err) {
+        throw new Error(err.message || 'Failed to update habit');
+      }
     } else {
       return new Promise((resolve) => {
         setTimeout(() => {
@@ -199,6 +226,14 @@ export const habitService = {
           batch.delete(doc.ref);
         });
         await batch.commit();
+        return true;
+      } catch (err) {
+        throw new Error(err.message || 'Failed to delete habit');
+      }
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.post('', { action: 'deleteHabit', habitId, userId });
+        if (!res.data.success) throw new Error(res.data.error || 'Failed to delete habit');
         return true;
       } catch (err) {
         throw new Error(err.message || 'Failed to delete habit');
@@ -283,6 +318,14 @@ export const habitService = {
           streak: streakDetails.currentStreak,
           longestStreak: streakDetails.longestStreak
         };
+      } catch (err) {
+        throw new Error(err.message || 'Failed to log habit completion');
+      }
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.post('', { action: 'habitLog', userId, habitId, date, completed });
+        if (!res.data.success) throw new Error(res.data.error || 'Failed to log habit completion');
+        return res.data;
       } catch (err) {
         throw new Error(err.message || 'Failed to log habit completion');
       }

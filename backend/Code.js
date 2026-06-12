@@ -26,13 +26,15 @@ var SHEETS = {
   USERS: { name: "Users", headers: ["UserID", "Name", "Email", "Password", "JoinDate", "XP", "Level", "Streak", "LongestStreak"] },
   HABITS: { name: "Habits", headers: ["HabitID", "UserID", "HabitName", "Description", "Category", "XPReward", "Status"] },
   LOGS: { name: "HabitLogs", headers: ["LogID", "HabitID", "UserID", "Date", "Completed"] },
-  ACHIEVEMENTS: { name: "Achievements", headers: ["AchievementID", "UserID", "BadgeName", "UnlockedDate"] }
+  ACHIEVEMENTS: { name: "Achievements", headers: ["AchievementID", "UserID", "BadgeName", "UnlockedDate"] },
+  ROUTINE_LOGS: { name: "RoutineLogs", headers: ["LogID", "UserID", "Date", "ActivityID", "Completed"] }
 };
 
 function getUsersSheet() { return getOrCreateSheet(SHEETS.USERS.name, SHEETS.USERS.headers); }
 function getHabitsSheet() { return getOrCreateSheet(SHEETS.HABITS.name, SHEETS.HABITS.headers); }
 function getLogsSheet() { return getOrCreateSheet(SHEETS.LOGS.name, SHEETS.LOGS.headers); }
 function getAchievementsSheet() { return getOrCreateSheet(SHEETS.ACHIEVEMENTS.name, SHEETS.ACHIEVEMENTS.headers); }
+function getRoutineLogsSheet() { return getOrCreateSheet(SHEETS.ROUTINE_LOGS.name, SHEETS.ROUTINE_LOGS.headers); }
 
 // ORM UTILITIES FOR SHEETS
 function getSheetRows(sheet) {
@@ -136,6 +138,11 @@ function doGet(e) {
       case "achievements":
         if (!userId) return error("Missing userId parameter");
         return getAchievements(userId);
+      case "routineLogs":
+        if (!userId) return error("Missing userId parameter");
+        var date = params.date;
+        if (!date) return error("Missing date parameter");
+        return getRoutineLogs(userId, date);
       default:
         return error("Invalid action: " + action);
     }
@@ -169,6 +176,8 @@ function doPost(e) {
         return deleteHabit(payload.habitId, payload.userId);
       case "habitLog":
         return logHabit(payload.userId, payload.habitId, payload.date, payload.completed);
+      case "logRoutine":
+        return logRoutineActivity(payload.userId, payload.activityId, payload.date, payload.completed, payload.xpReward);
       default:
         return error("Invalid POST action: " + action);
     }
@@ -707,4 +716,85 @@ function getCalendarData(userId) {
     logs: calendarLogs,
     habits: habitMap
   });
+}
+
+// 12. GET /routineLogs
+function getRoutineLogs(userId, date) {
+  if (!userId || !date) return error("Missing userId or date");
+  var sheet = getRoutineLogsSheet();
+  var logs = getSheetRows(sheet);
+  var filtered = logs.filter(function (l) {
+    return l.UserID == userId && l.Date.indexOf(date) !== -1 && (l.Completed == "TRUE" || l.Completed === true);
+  }).map(function (l) {
+    return l.ActivityID;
+  });
+  return response({ success: true, logs: filtered });
+}
+
+// 13. POST /logRoutine
+function logRoutineActivity(userId, activityId, date, completed, xpReward) {
+  if (!userId || !activityId || !date) return error("Missing required parameters");
+
+  var sheet = getRoutineLogsSheet();
+  var logs = getSheetRows(sheet);
+
+  var existingLog = logs.find(function (l) {
+    return l.UserID == userId && l.ActivityID == activityId && l.Date.indexOf(date) !== -1;
+  });
+
+  var wasCompletedBefore = existingLog ? (existingLog.Completed == "TRUE" || existingLog.Completed === true) : false;
+  var isCompletedNow = completed === true || completed === "true";
+
+  if (existingLog) {
+    updateRowByColumn(sheet, "LogID", existingLog.LogID, { Completed: isCompletedNow });
+  } else {
+    var logId = "rl_" + Math.random().toString(36).substr(2, 9);
+    insertRow(sheet, {
+      LogID: logId,
+      UserID: userId,
+      Date: date,
+      ActivityID: activityId,
+      Completed: isCompletedNow
+    }, SHEETS.ROUTINE_LOGS.headers);
+  }
+
+  var xpChange = 0;
+  if (!wasCompletedBefore && isCompletedNow) {
+    xpChange = Number(xpReward) || 5;
+  } else if (wasCompletedBefore && !isCompletedNow) {
+    xpChange = -(Number(xpReward) || 5);
+  }
+
+  // Update User XP
+  var userSheet = getUsersSheet();
+  var users = getSheetRows(userSheet);
+  var targetUser = users.find(function (u) { return u.UserID == userId; });
+
+  if (targetUser) {
+    var currentXP = Math.max(0, (Number(targetUser.XP) || 0) + xpChange);
+    var currentLevel = calculateLevel(currentXP);
+
+    // Recalculate streak
+    var streakDetails = calculateStreakForUser(userId);
+
+    updateRowByColumn(userSheet, "UserID", userId, {
+      XP: currentXP,
+      Level: currentLevel,
+      Streak: streakDetails.currentStreak,
+      LongestStreak: streakDetails.longestStreak
+    });
+
+    // Run Achievement Evaluator
+    evaluateAchievements(userId, currentXP, streakDetails.completedCount, streakDetails.longestStreak);
+
+    return response({
+      success: true,
+      xp: currentXP,
+      level: currentLevel,
+      streak: streakDetails.currentStreak,
+      longestStreak: streakDetails.longestStreak
+    });
+  }
+
+  return error("User record error");
 }

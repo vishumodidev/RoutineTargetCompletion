@@ -8,6 +8,9 @@ import {
   where 
 } from 'firebase/firestore';
 import { mockDb } from '../utils/mockDb';
+import api from './api';
+
+const isSheetsEnabled = !!import.meta.env.VITE_API_URL;
 
 export const dashboardService = {
   getDashboardData: async (userId) => {
@@ -76,6 +79,14 @@ export const dashboardService = {
           todayQuests,
           achievementsCount: achievementsSnap.size
         };
+      } catch (err) {
+        throw new Error(err.message || 'Failed to fetch dashboard data');
+      }
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.get('', { params: { action: 'dashboard', userId } });
+        if (!res.data.success) throw new Error(res.data.error || 'Failed to fetch dashboard');
+        return res.data;
       } catch (err) {
         throw new Error(err.message || 'Failed to fetch dashboard data');
       }

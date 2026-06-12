@@ -6,6 +6,9 @@ import {
   where 
 } from 'firebase/firestore';
 import { mockDb } from '../utils/mockDb';
+import api from './api';
+
+const isSheetsEnabled = !!import.meta.env.VITE_API_URL;
 
 export const achievementService = {
   getAchievements: async (userId) => {
@@ -20,6 +23,14 @@ export const achievementService = {
             unlockedDate: data.unlockedDate
           };
         });
+      } catch (err) {
+        throw new Error(err.message || 'Failed to fetch achievements');
+      }
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.get('', { params: { action: 'achievements', userId } });
+        if (!res.data.success) throw new Error(res.data.error || 'Failed to fetch achievements');
+        return res.data.achievements;
       } catch (err) {
         throw new Error(err.message || 'Failed to fetch achievements');
       }
