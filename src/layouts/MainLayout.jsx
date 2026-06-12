@@ -5,6 +5,7 @@ import { getLevelDetails } from '../utils';
 import { 
   LayoutDashboard, 
   CheckSquare, 
+  Clock,
   BarChart2, 
   Calendar as CalendarIcon, 
   Trophy, 
@@ -34,6 +35,7 @@ export default function MainLayout() {
 
   const navLinks = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/routine', label: 'Routine', icon: Clock },
     { to: '/habits', label: 'Habits', icon: CheckSquare },
     { to: '/analytics', label: 'Analytics', icon: BarChart2 },
     { to: '/calendar', label: 'Calendar', icon: CalendarIcon },

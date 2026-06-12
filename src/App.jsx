@@ -11,6 +11,7 @@ import { Toaster } from 'react-hot-toast'
 // Lazy-loaded Pages
 const Login = lazy(() => import('./pages/Login'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Routine = lazy(() => import('./pages/Routine'))
 const Habits = lazy(() => import('./pages/Habits'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const Calendar = lazy(() => import('./pages/Calendar'))
@@ -55,6 +56,7 @@ function App() {
                   >
                     <Route index element={<Navigate to="/dashboard" replace />} />
                     <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="routine" element={<Routine />} />
                     <Route path="habits" element={<Habits />} />
                     <Route path="analytics" element={<Analytics />} />
                     <Route path="calendar" element={<Calendar />} />

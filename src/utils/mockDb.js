@@ -14,6 +14,9 @@ export function initMockDb() {
   if (!localStorage.getItem('mock_achievements')) {
     localStorage.setItem('mock_achievements', JSON.stringify([]));
   }
+  if (!localStorage.getItem('mock_routine_logs')) {
+    localStorage.setItem('mock_routine_logs', JSON.stringify([]));
+  }
 }
 
 // Helpers to get/set tables
@@ -450,6 +453,66 @@ export const mockDb = {
         habitName: h.HabitName
       }))
     };
+  },
+
+  getRoutineLogs: (userId, date) => {
+    const logs = getTable('mock_routine_logs');
+    return logs
+      .filter(l => l.UserID === userId && l.Date === date && l.Completed)
+      .map(l => l.ActivityID);
+  },
+
+  logRoutineActivity: (userId, activityId, date, completed, xpReward) => {
+    const logs = getTable('mock_routine_logs');
+    const users = getTable('mock_users');
+
+    const logIdx = logs.findIndex(
+      l => l.UserID === userId && l.Date === date && l.ActivityID === activityId
+    );
+    const wasCompleted = logIdx !== -1 ? logs[logIdx].Completed : false;
+
+    if (logIdx !== -1) {
+      logs[logIdx].Completed = completed;
+    } else {
+      logs.push({
+        LogID: 'rl_' + Math.random().toString(36).substr(2, 9),
+        UserID: userId,
+        Date: date,
+        ActivityID: activityId,
+        Completed: completed
+      });
+    }
+    saveTable('mock_routine_logs', logs);
+
+    let xpChange = 0;
+    if (!wasCompleted && completed) {
+      xpChange = xpReward;
+    } else if (wasCompleted && !completed) {
+      xpChange = -xpReward;
+    }
+
+    const userIdx = users.findIndex(u => u.UserID === userId);
+    if (userIdx !== -1) {
+      const user = users[userIdx];
+      const newXP = Math.max(0, user.XP + xpChange);
+      const { level } = getLevelDetails(newXP);
+
+      users[userIdx] = {
+        ...user,
+        XP: newXP,
+        Level: level
+      };
+      saveTable('mock_users', users);
+
+      return {
+        success: true,
+        xp: newXP,
+        level: level,
+        streak: user.Streak,
+        longestStreak: user.LongestStreak
+      };
+    }
+    throw new Error('User not found');
   }
 };
 
