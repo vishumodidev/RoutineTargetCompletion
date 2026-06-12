@@ -21,6 +21,28 @@ function getOrCreateSheet(name, headers) {
   return sheet;
 }
 
+function getFormattedDate(dateVal) {
+  if (!dateVal) return "";
+  if (dateVal instanceof Date) {
+    var year = dateVal.getFullYear();
+    var month = ("0" + (dateVal.getMonth() + 1)).slice(-2);
+    var day = ("0" + dateVal.getDate()).slice(-2);
+    return year + "-" + month + "-" + day;
+  }
+  var str = String(dateVal);
+  if (str.indexOf("T") !== -1) {
+    return str.split("T")[0];
+  }
+  if (str.indexOf(" ") !== -1 && !isNaN(Date.parse(str))) {
+    var parsedDate = new Date(str);
+    var pYear = parsedDate.getFullYear();
+    var pMonth = ("0" + (parsedDate.getMonth() + 1)).slice(-2);
+    var pDay = ("0" + parsedDate.getDate()).slice(-2);
+    return pYear + "-" + pMonth + "-" + pDay;
+  }
+  return str;
+}
+
 // SHEETS CONSTANTS
 var SHEETS = {
   USERS: { name: "Users", headers: ["UserID", "Name", "Email", "Password", "JoinDate", "XP", "Level", "Streak", "LongestStreak"] },
@@ -380,7 +402,7 @@ function logHabit(userId, habitId, date, completed) {
 
   var xpReward = Number(targetHabit.XPReward) || 5;
   var existingLog = logs.find(function (l) {
-    return l.HabitID == habitId && l.UserID == userId && l.Date.indexOf(date) !== -1;
+    return l.HabitID == habitId && l.UserID == userId && getFormattedDate(l.Date) === date;
   });
 
   var wasCompletedBefore = existingLog ? (existingLog.Completed == "TRUE" || existingLog.Completed === true) : false;
@@ -457,7 +479,7 @@ function getDashboard(userId) {
   var today = new Date().toISOString().split("T")[0];
   var logsSheet = getLogsSheet();
   var logs = getSheetRows(logsSheet).filter(function (l) {
-    return l.UserID == userId && l.Date.indexOf(today) !== -1;
+    return l.UserID == userId && getFormattedDate(l.Date) === today;
   });
 
   var habitsChecklist = habits.map(function (h) {
@@ -523,7 +545,7 @@ function getAnalytics(userId) {
     date.setDate(date.getDate() - i);
     var dateStr = date.toISOString().split("T")[0];
 
-    var dayLogs = logs.filter(function (l) { return l.Date.indexOf(dateStr) !== -1; });
+    var dayLogs = logs.filter(function (l) { return getFormattedDate(l.Date) === dateStr; });
     var comp = dayLogs.filter(function (l) { return l.Completed == "TRUE" || l.Completed === true; }).length;
     var tot = dayLogs.length;
 
@@ -589,7 +611,7 @@ function calculateStreakForUser(userId) {
 
   // Unique dates of completions sorted descending
   var dates = logs.map(function (l) {
-    return l.Date.split("T")[0];
+    return getFormattedDate(l.Date);
   }).filter(function (val, index, self) {
     return self.indexOf(val) === index;
   }).sort(function (a, b) {
@@ -699,7 +721,7 @@ function getCalendarData(userId) {
   var calendarLogs = logs.map(function (l) {
     return {
       habitId: l.HabitID,
-      date: l.Date.indexOf("T") !== -1 ? l.Date.split("T")[0] : l.Date,
+      date: getFormattedDate(l.Date),
       completed: l.Completed == "TRUE" || l.Completed === true
     };
   });
@@ -724,7 +746,7 @@ function getRoutineLogs(userId, date) {
   var sheet = getRoutineLogsSheet();
   var logs = getSheetRows(sheet);
   var filtered = logs.filter(function (l) {
-    return l.UserID == userId && l.Date.indexOf(date) !== -1 && (l.Completed == "TRUE" || l.Completed === true);
+    return l.UserID == userId && getFormattedDate(l.Date) === date && (l.Completed == "TRUE" || l.Completed === true);
   }).map(function (l) {
     return l.ActivityID;
   });
@@ -739,7 +761,7 @@ function logRoutineActivity(userId, activityId, date, completed, xpReward) {
   var logs = getSheetRows(sheet);
 
   var existingLog = logs.find(function (l) {
-    return l.UserID == userId && l.ActivityID == activityId && l.Date.indexOf(date) !== -1;
+    return l.UserID == userId && l.ActivityID == activityId && getFormattedDate(l.Date) === date;
   });
 
   var wasCompletedBefore = existingLog ? (existingLog.Completed == "TRUE" || existingLog.Completed === true) : false;
