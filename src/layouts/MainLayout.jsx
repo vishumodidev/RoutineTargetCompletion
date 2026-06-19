@@ -14,7 +14,8 @@ import {
   Menu, 
   X, 
   Zap, 
-  Sword
+  Sword,
+  Milestone
 } from 'lucide-react';
 
 export default function MainLayout() {
@@ -37,6 +38,7 @@ export default function MainLayout() {
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/routine', label: 'Routine', icon: Clock },
     { to: '/habits', label: 'Habits', icon: CheckSquare },
+    { to: '/roadmap', label: 'Roadmap', icon: Milestone },
     { to: '/analytics', label: 'Analytics', icon: BarChart2 },
     { to: '/calendar', label: 'Calendar', icon: CalendarIcon },
     { to: '/achievements', label: 'Achievements', icon: Trophy },

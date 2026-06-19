@@ -2,20 +2,100 @@ import { getLevelDetails } from './index';
 
 // Initialize mock storage if empty
 export function initMockDb() {
-  if (!localStorage.getItem('mock_users')) {
-    localStorage.setItem('mock_users', JSON.stringify([]));
-  }
-  if (!localStorage.getItem('mock_habits')) {
-    localStorage.setItem('mock_habits', JSON.stringify([]));
-  }
-  if (!localStorage.getItem('mock_logs')) {
-    localStorage.setItem('mock_logs', JSON.stringify([]));
-  }
-  if (!localStorage.getItem('mock_achievements')) {
-    localStorage.setItem('mock_achievements', JSON.stringify([]));
-  }
-  if (!localStorage.getItem('mock_routine_logs')) {
-    localStorage.setItem('mock_routine_logs', JSON.stringify([]));
+  if (!localStorage.getItem('mock_users') || JSON.parse(localStorage.getItem('mock_users')).length === 0) {
+    const defaultUser = {
+      UserID: 'usr_vishu',
+      Name: 'Vishu',
+      Email: 'vishu@tracker.com',
+      Password: 'password',
+      JoinDate: '2026-06-01',
+      XP: 450,
+      Level: 3,
+      Streak: 12,
+      LongestStreak: 15
+    };
+    localStorage.setItem('mock_users', JSON.stringify([defaultUser]));
+
+    const defaultHabits = [
+      { HabitID: 'hab_python', UserID: 'usr_vishu', HabitName: 'Python: Advanced Concepts', Description: 'Decorators, metaclasses, and async programming models', Category: 'Coding', XPReward: 15, Status: 'Active' },
+      { HabitID: 'hab_fastapi', UserID: 'usr_vishu', HabitName: 'FastAPI: Backend Architecture', Description: 'Secure endpoints, Alembic migrations, database schemas', Category: 'Coding', XPReward: 15, Status: 'Active' },
+      { HabitID: 'hab_rag', UserID: 'usr_vishu', HabitName: 'RAG: Vector DBs & Search', Description: 'Semantic search, embedding indexing (Qdrant), hybrid retriever', Category: 'Coding', XPReward: 15, Status: 'Active' },
+      { HabitID: 'hab_langgraph', UserID: 'usr_vishu', HabitName: 'LangGraph & CrewAI Orchestration', Description: 'Multi-agent graph systems, human-in-the-loop validation', Category: 'Coding', XPReward: 25, Status: 'Active' },
+      { HabitID: 'hab_devops', UserID: 'usr_vishu', HabitName: 'AWS, Docker & K8s Deployments', Description: 'Containerizing backends, cloud configuration, AWS VPCs', Category: 'Coding', XPReward: 15, Status: 'Active' },
+      { HabitID: 'hab_mi_field', UserID: 'usr_vishu', HabitName: 'Mi Lifestyle: Field Outreach & Seminars', Description: 'Connecting with prospects, supporting downline networks', Category: 'General', XPReward: 25, Status: 'Active' },
+      { HabitID: 'hab_mi_followup', UserID: 'usr_vishu', HabitName: 'Mi Lifestyle: Customer Follow-ups', Description: 'Managing order responses, inquiries, wellness tips', Category: 'General', XPReward: 10, Status: 'Active' },
+      { HabitID: 'hab_cycling', UserID: 'usr_vishu', HabitName: 'Fitness: Cycling & Cardio', Description: 'Cycling 60 mins daily to maintain stamina and health', Category: 'Gym', XPReward: 10, Status: 'Active' },
+      { HabitID: 'hab_yoga', UserID: 'usr_vishu', HabitName: 'Fitness: Yoga & Meditation', Description: 'Yoga/stretching and mindfulness meditation 60 mins daily', Category: 'Gym', XPReward: 10, Status: 'Active' },
+      { HabitID: 'hab_branding', UserID: 'usr_vishu', HabitName: 'Branding: LinkedIn & GitHub updates', Description: 'Drafting code tutorials, recording lectures, and updating logs', Category: 'Reading', XPReward: 15, Status: 'Active' }
+    ];
+    localStorage.setItem('mock_habits', JSON.stringify(defaultHabits));
+
+    const defaultLogs = [];
+    const defaultAchievements = [
+      { AchievementID: 'ach_1', UserID: 'usr_vishu', BadgeName: 'First Habit Completed', UnlockedDate: '2026-06-01' },
+      { AchievementID: 'ach_2', UserID: 'usr_vishu', BadgeName: '7 Day Streak', UnlockedDate: '2026-06-08' },
+      { AchievementID: 'ach_3', UserID: 'usr_vishu', BadgeName: 'Level 2 Warrior', UnlockedDate: '2026-06-15' }
+    ];
+
+    // Generate 10 days of completions
+    for (let i = 0; i < 10; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+
+      defaultHabits.forEach((hab, idx) => {
+        // 80% completion rate for testing
+        const completed = (idx + i) % 5 !== 0; 
+        defaultLogs.push({
+          LogID: `log_${hab.HabitID}_${i}`,
+          HabitID: hab.HabitID,
+          UserID: 'usr_vishu',
+          Date: dateStr,
+          Completed: completed
+        });
+      });
+    }
+    localStorage.setItem('mock_logs', JSON.stringify(defaultLogs));
+    localStorage.setItem('mock_achievements', JSON.stringify(defaultAchievements));
+
+    const defaultRoutineLogs = [];
+    const weekdayActivityIds = [
+      'w_wake', 'w_cycling', 'w_yoga', 'w_bath', 'w_breakfast', 
+      'w_mi_morning', 'w_prep', 'w_office_1', 'w_office_learn', 
+      'w_office_2', 'w_lunch', 'w_office_3', 'w_office_code', 
+      'w_office_4', 'w_refresh', 'w_mi_evening', 'w_dinner', 
+      'w_ai_dev', 'w_content', 'w_winddown', 'w_sleep'
+    ];
+    for (let i = 0; i < 3; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      weekdayActivityIds.forEach((actId, idx) => {
+        if (idx % 8 !== 0) {
+          defaultRoutineLogs.push({
+            LogID: `rl_${actId}_${i}`,
+            UserID: 'usr_vishu',
+            Date: dateStr,
+            ActivityID: actId,
+            Completed: true
+          });
+        }
+      });
+    }
+    localStorage.setItem('mock_routine_logs', JSON.stringify(defaultRoutineLogs));
+  } else {
+    if (!localStorage.getItem('mock_habits')) {
+      localStorage.setItem('mock_habits', JSON.stringify([]));
+    }
+    if (!localStorage.getItem('mock_logs')) {
+      localStorage.setItem('mock_logs', JSON.stringify([]));
+    }
+    if (!localStorage.getItem('mock_achievements')) {
+      localStorage.setItem('mock_achievements', JSON.stringify([]));
+    }
+    if (!localStorage.getItem('mock_routine_logs')) {
+      localStorage.setItem('mock_routine_logs', JSON.stringify([]));
+    }
   }
 }
 

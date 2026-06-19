@@ -17,6 +17,7 @@ const Analytics = lazy(() => import('./pages/Analytics'))
 const Calendar = lazy(() => import('./pages/Calendar'))
 const Achievements = lazy(() => import('./pages/Achievements'))
 const Profile = lazy(() => import('./pages/Profile'))
+const Roadmap = lazy(() => import('./pages/Roadmap'))
 
 // Center fallback loader for dynamic route chunks
 const PageLoader = () => (
@@ -58,6 +59,7 @@ function App() {
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="routine" element={<Routine />} />
                     <Route path="habits" element={<Habits />} />
+                    <Route path="roadmap" element={<Roadmap />} />
                     <Route path="analytics" element={<Analytics />} />
                     <Route path="calendar" element={<Calendar />} />
                     <Route path="achievements" element={<Achievements />} />
