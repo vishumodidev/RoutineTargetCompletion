@@ -12,7 +12,23 @@ export function initMockDb() {
       XP: 450,
       Level: 3,
       Streak: 12,
-      LongestStreak: 15
+      LongestStreak: 15,
+      IncomeReceived: 75000,
+      IncomeMilestone: 150000,
+      CurrentSkillFocus: 'Agentic AI',
+      TodayLearningTarget: 'Tool Calling — 60 min',
+      CurrentProjectName: 'AI CRM Agent',
+      TodayBuildTaskName: 'Lead Qualification Workflow',
+      ProjectProgressPercent: 42,
+      ActiveDistributors: 3,
+      DistributorsLeft: 3,
+      DistributorsRight: 2,
+      TodayProspects: 5,
+      TodayFollowUps: 3,
+      TodayPresentations: 1,
+      TodayCoaching: 1,
+      TeamActivityCount: 2,
+      DayType: 'NORMAL GROWTH DAY'
     };
     localStorage.setItem('mock_users', JSON.stringify([defaultUser]));
 
@@ -97,6 +113,46 @@ export function initMockDb() {
       localStorage.setItem('mock_routine_logs', JSON.stringify([]));
     }
   }
+
+  // Initialize opportunity pipeline
+  if (!localStorage.getItem('mock_opportunities')) {
+    const defaultOpportunities = [
+      { id: 'opp_1', clientName: 'MERN customization', source: 'WhatsApp', stage: 'Qualified Leads', value: 45000 },
+      { id: 'opp_2', clientName: 'Corporate GenAI Training', source: 'LinkedIn', stage: 'Negotiations', value: 120000 },
+      { id: 'opp_3', clientName: 'React Native enhancement', source: 'Previous Client', stage: 'Confirmed', value: 30000 },
+      { id: 'opp_4', clientName: 'College Seminar', source: 'College', stage: 'New Leads', value: 15000 },
+      { id: 'opp_5', clientName: 'Agentic AI consulting', source: 'Referral', stage: 'Proposals', value: 45000 }
+    ];
+    localStorage.setItem('mock_opportunities', JSON.stringify(defaultOpportunities));
+  }
+
+  // Initialize Today's Big 5
+  if (!localStorage.getItem('mock_big_five')) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const defaultBigFive = [
+      { id: 'b5_1', category: 'HEALTH', taskName: 'Exercise/Yoga — 120 min', status: 'Done', xpReward: 15, date: todayStr },
+      { id: 'b5_2', category: 'MONEY', taskName: 'Follow up 3 high-value training leads', status: 'In Progress', xpReward: 25, date: todayStr },
+      { id: 'b5_3', category: 'BUILD', taskName: 'Complete AI CRM lead qualification workflow', status: 'Not Started', xpReward: 25, date: todayStr },
+      { id: 'b5_4', category: 'LEARN', taskName: 'Agentic AI tool calling — 60 min', status: 'Not Started', xpReward: 15, date: todayStr },
+      { id: 'b5_5', category: 'MI BUSINESS', taskName: '5 prospects + 3 follow-ups + distributor coaching', status: 'Not Started', xpReward: 20, date: todayStr }
+    ];
+    localStorage.setItem('mock_big_five', JSON.stringify(defaultBigFive));
+  }
+
+  // Initialize Time Allocation
+  if (!localStorage.getItem('mock_time_allocation')) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const defaultTime = [
+      { date: todayStr, category: 'Health', hours: 2.0 },
+      { date: todayStr, category: 'Paid Training', hours: 4.0 },
+      { date: todayStr, category: 'Client Project', hours: 3.0 },
+      { date: todayStr, category: 'Learning', hours: 1.5 },
+      { date: todayStr, category: 'Portfolio Building', hours: 2.0 },
+      { date: todayStr, category: 'Client Acquisition', hours: 1.0 },
+      { date: todayStr, category: 'MI Lifestyle', hours: 1.0 }
+    ];
+    localStorage.setItem('mock_time_allocation', JSON.stringify(defaultTime));
+  }
 }
 
 // Helpers to get/set tables
@@ -124,7 +180,23 @@ export const mockDb = {
       xp: user.XP,
       level: user.Level,
       streak: user.Streak,
-      longestStreak: user.LongestStreak
+      longestStreak: user.LongestStreak,
+      incomeReceived: user.IncomeReceived || 75000,
+      incomeMilestone: user.IncomeMilestone || 150000,
+      currentSkillFocus: user.CurrentSkillFocus || 'Agentic AI',
+      todayLearningTarget: user.TodayLearningTarget || 'Tool Calling — 60 min',
+      currentProjectName: user.CurrentProjectName || 'AI CRM Agent',
+      todayBuildTaskName: user.TodayBuildTaskName || 'Lead Qualification Workflow',
+      projectProgressPercent: user.ProjectProgressPercent || 42,
+      activeDistributors: user.ActiveDistributors || 3,
+      distributorsLeft: user.DistributorsLeft || 3,
+      distributorsRight: user.DistributorsRight || 2,
+      todayProspects: user.TodayProspects || 5,
+      todayFollowUps: user.TodayFollowUps || 3,
+      todayPresentations: user.TodayPresentations || 1,
+      todayCoaching: user.TodayCoaching || 1,
+      teamActivityCount: user.TeamActivityCount || 2,
+      dayType: user.DayType || 'NORMAL GROWTH DAY'
     };
   },
 
@@ -145,7 +217,23 @@ export const mockDb = {
       XP: 0,
       Level: 1,
       Streak: 0,
-      LongestStreak: 0
+      LongestStreak: 0,
+      IncomeReceived: 0,
+      IncomeMilestone: 150000,
+      CurrentSkillFocus: 'Agentic AI',
+      TodayLearningTarget: 'Tool Calling — 60 min',
+      CurrentProjectName: 'AI CRM Agent',
+      TodayBuildTaskName: 'Lead Qualification Workflow',
+      ProjectProgressPercent: 0,
+      ActiveDistributors: 3,
+      DistributorsLeft: 0,
+      DistributorsRight: 0,
+      TodayProspects: 0,
+      TodayFollowUps: 0,
+      TodayPresentations: 0,
+      TodayCoaching: 0,
+      TeamActivityCount: 0,
+      DayType: 'NORMAL GROWTH DAY'
     };
 
     users.push(newUser);
@@ -159,7 +247,23 @@ export const mockDb = {
       xp: 0,
       level: 1,
       streak: 0,
-      longestStreak: 0
+      longestStreak: 0,
+      incomeReceived: 0,
+      incomeMilestone: 150000,
+      currentSkillFocus: 'Agentic AI',
+      todayLearningTarget: 'Tool Calling — 60 min',
+      currentProjectName: 'AI CRM Agent',
+      todayBuildTaskName: 'Lead Qualification Workflow',
+      projectProgressPercent: 0,
+      activeDistributors: 3,
+      distributorsLeft: 0,
+      distributorsRight: 0,
+      todayProspects: 0,
+      todayFollowUps: 0,
+      todayPresentations: 0,
+      todayCoaching: 0,
+      teamActivityCount: 0,
+      dayType: 'NORMAL GROWTH DAY'
     };
   },
 
@@ -341,6 +445,38 @@ export const mockDb = {
 
     const userAchievements = achievements.filter(a => a.UserID === userId);
 
+    // Initialize/Get Big Five for Today
+    const bigFive = getTable('mock_big_five');
+    let todayBigFive = bigFive.filter(item => item.date === today);
+    if (todayBigFive.length === 0) {
+      todayBigFive = [
+        { id: 'b5_1_' + today, category: 'HEALTH', taskName: 'Exercise/Yoga — 120 min', status: 'Done', xpReward: 15, date: today },
+        { id: 'b5_2_' + today, category: 'MONEY', taskName: 'Follow up 3 high-value training leads', status: 'In Progress', xpReward: 25, date: today },
+        { id: 'b5_3_' + today, category: 'BUILD', taskName: 'Complete AI CRM lead qualification workflow', status: 'Not Started', xpReward: 25, date: today },
+        { id: 'b5_4_' + today, category: 'LEARN', taskName: 'Agentic AI tool calling — 60 min', status: 'Not Started', xpReward: 15, date: today },
+        { id: 'b5_5_' + today, category: 'MI BUSINESS', taskName: '5 prospects + 3 follow-ups + distributor coaching', status: 'Not Started', xpReward: 20, date: today }
+      ];
+      saveTable('mock_big_five', [...bigFive, ...todayBigFive]);
+    }
+
+    // Initialize/Get Time Allocation for Today
+    const timeAlloc = getTable('mock_time_allocation');
+    let todayTime = timeAlloc.filter(item => item.date === today);
+    if (todayTime.length === 0) {
+      todayTime = [
+        { date: today, category: 'Health', hours: 2.0 },
+        { date: today, category: 'Paid Training', hours: 4.0 },
+        { date: today, category: 'Client Project', hours: 3.0 },
+        { date: today, category: 'Learning', hours: 1.5 },
+        { date: today, category: 'Portfolio Building', hours: 2.0 },
+        { date: today, category: 'Client Acquisition', hours: 1.0 },
+        { date: today, category: 'MI Lifestyle', hours: 1.0 }
+      ];
+      saveTable('mock_time_allocation', [...timeAlloc, ...todayTime]);
+    }
+
+    const opportunities = getTable('mock_opportunities');
+
     return {
       success: true,
       user: {
@@ -351,11 +487,118 @@ export const mockDb = {
         xp: user.XP,
         level: user.Level,
         streak: user.Streak,
-        longestStreak: user.LongestStreak
+        longestStreak: user.LongestStreak,
+        incomeReceived: user.IncomeReceived || 75000,
+        incomeMilestone: user.IncomeMilestone || 150000,
+        currentSkillFocus: user.CurrentSkillFocus || 'Agentic AI',
+        todayLearningTarget: user.TodayLearningTarget || 'Tool Calling — 60 min',
+        currentProjectName: user.CurrentProjectName || 'AI CRM Agent',
+        todayBuildTaskName: user.TodayBuildTaskName || 'Lead Qualification Workflow',
+        projectProgressPercent: user.ProjectProgressPercent || 42,
+        activeDistributors: user.ActiveDistributors || 3,
+        distributorsLeft: user.DistributorsLeft || 3,
+        distributorsRight: user.DistributorsRight || 2,
+        todayProspects: user.TodayProspects || 5,
+        todayFollowUps: user.TodayFollowUps || 3,
+        todayPresentations: user.TodayPresentations || 1,
+        todayCoaching: user.TodayCoaching || 1,
+        teamActivityCount: user.TeamActivityCount || 2,
+        dayType: user.DayType || 'NORMAL GROWTH DAY'
       },
       todayQuests: habitsChecklist,
-      achievementsCount: userAchievements.length
+      achievementsCount: userAchievements.length,
+      todayBigFive,
+      opportunities,
+      todayTime
     };
+  },
+
+  updateUserProperty: (userId, key, value) => {
+    const users = getTable('mock_users');
+    const idx = users.findIndex(u => u.UserID === userId);
+    if (idx !== -1) {
+      users[idx][key] = value;
+      saveTable('mock_users', users);
+      return true;
+    }
+    return false;
+  },
+
+  updateBigFiveStatus: (userId, taskId, status) => {
+    const bigFive = getTable('mock_big_five');
+    const idx = bigFive.findIndex(item => item.id === taskId);
+    if (idx !== -1) {
+      const oldStatus = bigFive[idx].status;
+      bigFive[idx].status = status;
+      saveTable('mock_big_five', bigFive);
+
+      // Award XP when marked 'Done'
+      let xpChange = 0;
+      const xpReward = Number(bigFive[idx].xpReward) || 10;
+      if (oldStatus !== 'Done' && status === 'Done') {
+        xpChange = xpReward;
+      } else if (oldStatus === 'Done' && status !== 'Done') {
+        xpChange = -xpReward;
+      }
+
+      if (xpChange !== 0) {
+        const users = getTable('mock_users');
+        const userIdx = users.findIndex(u => u.UserID === userId);
+        if (userIdx !== -1) {
+          const user = users[userIdx];
+          const newXP = Math.max(0, user.XP + xpChange);
+          const { level } = getLevelDetails(newXP);
+
+          users[userIdx] = {
+            ...user,
+            XP: newXP,
+            Level: level
+          };
+          saveTable('mock_users', users);
+          return { success: true, xp: newXP, level };
+        }
+      }
+      return { success: true };
+    }
+    return { success: false, error: 'Task not found' };
+  },
+
+  updateOpportunity: (userId, opp) => {
+    const opportunities = getTable('mock_opportunities');
+    const idx = opportunities.findIndex(o => o.id === opp.id);
+    if (idx !== -1) {
+      opportunities[idx] = { ...opportunities[idx], ...opp };
+    } else {
+      opportunities.push({
+        id: opp.id || 'opp_' + Math.random().toString(36).substr(2, 9),
+        ...opp
+      });
+    }
+    saveTable('mock_opportunities', opportunities);
+    return true;
+  },
+
+  deleteOpportunity: (userId, oppId) => {
+    const opportunities = getTable('mock_opportunities');
+    const filtered = opportunities.filter(o => o.id !== oppId);
+    saveTable('mock_opportunities', filtered);
+    return true;
+  },
+
+  updateTimeAllocation: (userId, date, category, hours) => {
+    const timeAlloc = getTable('mock_time_allocation');
+    const idx = timeAlloc.findIndex(t => t.date === date && t.category === category);
+    if (idx !== -1) {
+      timeAlloc[idx].hours = Number(hours);
+    } else {
+      timeAlloc.push({
+        date,
+        category,
+        hours: Number(hours)
+      });
+    }
+    saveTable('mock_time_allocation', timeAlloc);
+    return true;
   },
 
   getAnalytics: (userId) => {

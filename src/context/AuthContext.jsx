@@ -67,8 +67,60 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateUserProfile = (updatedFields) => {
+    if (user) {
+      const updatedUser = { ...user, ...updatedFields };
+      localStorage.setItem('habit_hero_user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+
+      // Persist to underlying mock users table if possible
+      try {
+        const users = JSON.parse(localStorage.getItem('mock_users') || '[]');
+        const idx = users.findIndex(u => u.UserID === user.userId);
+        if (idx !== -1) {
+          const dbMapping = {
+            name: 'Name',
+            email: 'Email',
+            xp: 'XP',
+            level: 'Level',
+            streak: 'Streak',
+            longestStreak: 'LongestStreak',
+            incomeReceived: 'IncomeReceived',
+            incomeMilestone: 'IncomeMilestone',
+            currentSkillFocus: 'CurrentSkillFocus',
+            todayLearningTarget: 'TodayLearningTarget',
+            currentProjectName: 'CurrentProjectName',
+            todayBuildTaskName: 'TodayBuildTaskName',
+            projectProgressPercent: 'ProjectProgressPercent',
+            activeDistributors: 'ActiveDistributors',
+            distributorsLeft: 'DistributorsLeft',
+            distributorsRight: 'DistributorsRight',
+            todayProspects: 'TodayProspects',
+            todayFollowUps: 'TodayFollowUps',
+            todayPresentations: 'TodayPresentations',
+            todayCoaching: 'TodayCoaching',
+            teamActivityCount: 'TeamActivityCount',
+            dayType: 'DayType'
+          };
+          
+          const updatedDbUser = { ...users[idx] };
+          Object.keys(updatedFields).forEach(key => {
+            const dbKey = dbMapping[key];
+            if (dbKey) {
+              updatedDbUser[dbKey] = updatedFields[key];
+            }
+          });
+          users[idx] = updatedDbUser;
+          localStorage.setItem('mock_users', JSON.stringify(users));
+        }
+      } catch (e) {
+        console.error('Failed to sync mock_users table', e);
+      }
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateXP, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateXP, updateUserProfile, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

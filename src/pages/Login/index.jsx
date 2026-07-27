@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
@@ -8,8 +8,14 @@ import toast from 'react-hot-toast';
 export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login, register } = useContext(AuthContext);
+  const { user, login, register } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const {
     register: formRegister,
@@ -19,8 +25,8 @@ export default function Login() {
   } = useForm({
     defaultValues: {
       name: '',
-      email: '',
-      password: ''
+      email: 'vishu@tracker.com',
+      password: 'password'
     }
   });
 

@@ -8,10 +8,13 @@ import toast from 'react-hot-toast';
 export const DashboardContext = createContext(null);
 
 export function DashboardProvider({ children }) {
-  const { user } = useContext(AuthContext);
+  const { user, updateXP } = useContext(AuthContext);
   const { logHabitCompletion } = useContext(HabitContext);
   const [todayQuests, setTodayQuests] = useState([]);
   const [achievementsCount, setAchievementsCount] = useState(0);
+  const [todayBigFive, setTodayBigFive] = useState([]);
+  const [opportunities, setOpportunities] = useState([]);
+  const [todayTime, setTodayTime] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const fetchDashboard = useCallback(async () => {
@@ -21,6 +24,9 @@ export function DashboardProvider({ children }) {
       const data = await dashboardService.getDashboardData(user.userId);
       setTodayQuests(data.todayQuests || []);
       setAchievementsCount(data.achievementsCount || 0);
+      setTodayBigFive(data.todayBigFive || []);
+      setOpportunities(data.opportunities || []);
+      setTodayTime(data.todayTime || []);
     } catch (err) {
       console.error(err);
       toast.error(err.message || 'Failed to fetch dashboard statistics');
@@ -33,25 +39,87 @@ export function DashboardProvider({ children }) {
     if (!user) return;
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Optimistic Update (Immediate state update for instantaneous responsive feel)
     setTodayQuests((prev) =>
       prev.map((q) => (q.habitId === habitId ? { ...q, completed } : q))
     );
 
     try {
-      // 2. Call service layer (updates XP, Level, and Streak automatically)
       await logHabitCompletion(habitId, today, completed);
-      
-      // 3. Re-sync achievements count in background
       const data = await dashboardService.getDashboardData(user.userId);
       setAchievementsCount(data.achievementsCount || 0);
       setTodayQuests(data.todayQuests || []);
     } catch (err) {
       console.error(err);
-      // 4. Revert state on error
       setTodayQuests((prev) =>
         prev.map((q) => (q.habitId === habitId ? { ...q, completed: !completed } : q))
       );
+    }
+  };
+
+  const updateBigFiveStatus = async (taskId, status) => {
+    if (!user) return;
+    // Optimistic Update
+    let oldItem;
+    setTodayBigFive((prev) =>
+      prev.map((item) => {
+        if (item.id === taskId) {
+          oldItem = item;
+          return { ...item, status };
+        }
+        return item;
+      })
+    );
+
+    try {
+      const res = await dashboardService.updateBigFiveStatus(user.userId, taskId, status);
+      if (res.success && res.xp !== undefined) {
+        updateXP(res.xp, res.level);
+      }
+      
+      // Sync dashboard data
+      const data = await dashboardService.getDashboardData(user.userId);
+      setTodayBigFive(data.todayBigFive || []);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to update quest status');
+      if (oldItem) {
+        setTodayBigFive((prev) =>
+          prev.map((item) => (item.id === taskId ? oldItem : item))
+        );
+      }
+    }
+  };
+
+  const updateOpportunity = async (opp) => {
+    if (!user) return;
+    try {
+      await dashboardService.updateOpportunity(user.userId, opp);
+      await fetchDashboard();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save opportunity');
+    }
+  };
+
+  const deleteOpportunity = async (oppId) => {
+    if (!user) return;
+    try {
+      await dashboardService.deleteOpportunity(user.userId, oppId);
+      await fetchDashboard();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to delete opportunity');
+    }
+  };
+
+  const updateTimeAllocation = async (date, category, hours) => {
+    if (!user) return;
+    try {
+      await dashboardService.updateTimeAllocation(user.userId, date, category, hours);
+      await fetchDashboard();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to update time allocation');
     }
   };
 
@@ -60,9 +128,16 @@ export function DashboardProvider({ children }) {
       value={{
         todayQuests,
         achievementsCount,
+        todayBigFive,
+        opportunities,
+        todayTime,
         loading,
         fetchDashboard,
-        toggleQuest
+        toggleQuest,
+        updateBigFiveStatus,
+        updateOpportunity,
+        deleteOpportunity,
+        updateTimeAllocation
       }}
     >
       {children}

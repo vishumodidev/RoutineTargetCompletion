@@ -101,5 +101,87 @@ export const dashboardService = {
         }, 400);
       });
     }
+  },
+
+  updateUserProperty: async (userId, key, value) => {
+    if (isFirebaseEnabled) {
+      try {
+        const { doc, updateDoc } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+        await updateDoc(doc(db, 'users', userId), { [key]: value });
+        return { success: true };
+      } catch (err) {
+        throw new Error(err.message || 'Failed to update user property');
+      }
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.post('', { action: 'updateUserProperty', userId, key, value });
+        return res.data;
+      } catch (err) {
+        throw new Error(err.message || 'Failed to update user property');
+      }
+    } else {
+      return mockDb.updateUserProperty(userId, key, value);
+    }
+  },
+
+  updateBigFiveStatus: async (userId, taskId, status) => {
+    if (isFirebaseEnabled) {
+      return { success: true };
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.post('', { action: 'updateBigFiveStatus', userId, taskId, status });
+        return res.data;
+      } catch (err) {
+        throw new Error(err.message || 'Failed to update Big 5 status');
+      }
+    } else {
+      return mockDb.updateBigFiveStatus(userId, taskId, status);
+    }
+  },
+
+  updateOpportunity: async (userId, opp) => {
+    if (isFirebaseEnabled) {
+      return { success: true };
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.post('', { action: 'updateOpportunity', userId, opp });
+        return res.data;
+      } catch (err) {
+        throw new Error(err.message || 'Failed to update opportunity');
+      }
+    } else {
+      return mockDb.updateOpportunity(userId, opp);
+    }
+  },
+
+  deleteOpportunity: async (userId, oppId) => {
+    if (isFirebaseEnabled) {
+      return { success: true };
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.post('', { action: 'deleteOpportunity', userId, oppId });
+        return res.data;
+      } catch (err) {
+        throw new Error(err.message || 'Failed to delete opportunity');
+      }
+    } else {
+      return mockDb.deleteOpportunity(userId, oppId);
+    }
+  },
+
+  updateTimeAllocation: async (userId, date, category, hours) => {
+    if (isFirebaseEnabled) {
+      return { success: true };
+    } else if (isSheetsEnabled) {
+      try {
+        const res = await api.post('', { action: 'updateTimeAllocation', userId, date, category, hours });
+        return res.data;
+      } catch (err) {
+        throw new Error(err.message || 'Failed to update time allocation');
+      }
+    } else {
+      return mockDb.updateTimeAllocation(userId, date, category, hours);
+    }
   }
 };
