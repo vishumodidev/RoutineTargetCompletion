@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext'
 import { HabitProvider } from './context/HabitContext'
 import { DashboardProvider } from './context/DashboardContext'
 import { AchievementProvider } from './context/AchievementContext'
+import { InvestmentProvider } from './context/InvestmentContext'
 import ProtectedRoute from './components/common/ProtectedRoute'
 import MainLayout from './layouts/MainLayout'
 import { Toaster } from 'react-hot-toast'
@@ -13,11 +14,13 @@ const Login = lazy(() => import('./pages/Login'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Routine = lazy(() => import('./pages/Routine'))
 const Habits = lazy(() => import('./pages/Habits'))
+const Roadmap = lazy(() => import('./pages/Roadmap'))
+const Investments = lazy(() => import('./pages/Investments'))
+const FinancialGoals = lazy(() => import('./pages/FinancialGoals'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const Calendar = lazy(() => import('./pages/Calendar'))
 const Achievements = lazy(() => import('./pages/Achievements'))
 const Profile = lazy(() => import('./pages/Profile'))
-const Roadmap = lazy(() => import('./pages/Roadmap'))
 
 // Center fallback loader for dynamic route chunks
 const PageLoader = () => (
@@ -32,45 +35,49 @@ function App() {
       <HabitProvider>
         <DashboardProvider>
           <AchievementProvider>
-            <Toaster 
-              position="top-right" 
-              toastOptions={{ 
-                style: { 
-                  background: '#151b2c', 
-                  color: '#f3f4f6', 
-                  border: '1px solid #1e293b' 
-                } 
-              }} 
-            />
-            <BrowserRouter>
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
-                  <Route path="/login" element={<Login />} />
-                  
-                  <Route 
-                    path="/" 
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<Navigate to="/dashboard" replace />} />
-                    <Route path="dashboard" element={<Dashboard />} />
-                    <Route path="routine" element={<Routine />} />
-                    <Route path="habits" element={<Habits />} />
-                    <Route path="roadmap" element={<Roadmap />} />
-                    <Route path="analytics" element={<Analytics />} />
-                    <Route path="calendar" element={<Calendar />} />
-                    <Route path="achievements" element={<Achievements />} />
-                    <Route path="profile" element={<Profile />} />
-                  </Route>
+            <InvestmentProvider>
+              <Toaster 
+                position="top-right" 
+                toastOptions={{ 
+                  style: { 
+                    background: '#151b2c', 
+                    color: '#f3f4f6', 
+                    border: '1px solid #1e293b' 
+                  } 
+                }} 
+              />
+              <BrowserRouter>
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    <Route path="/login" element={<Login />} />
+                    
+                    <Route 
+                      path="/" 
+                      element={
+                        <ProtectedRoute>
+                          <MainLayout />
+                        </ProtectedRoute>
+                      }
+                    >
+                      <Route index element={<Navigate to="/dashboard" replace />} />
+                      <Route path="dashboard" element={<Dashboard />} />
+                      <Route path="routine" element={<Routine />} />
+                      <Route path="habits" element={<Habits />} />
+                      <Route path="roadmap" element={<Roadmap />} />
+                      <Route path="investments" element={<Investments />} />
+                      <Route path="financial-goals" element={<FinancialGoals />} />
+                      <Route path="analytics" element={<Analytics />} />
+                      <Route path="calendar" element={<Calendar />} />
+                      <Route path="achievements" element={<Achievements />} />
+                      <Route path="profile" element={<Profile />} />
+                    </Route>
 
-                  {/* Redirect all unmatched routes */}
-                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                </Routes>
-              </Suspense>
-            </BrowserRouter>
+                    {/* Redirect all unmatched routes */}
+                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                  </Routes>
+                </Suspense>
+              </BrowserRouter>
+            </InvestmentProvider>
           </AchievementProvider>
         </DashboardProvider>
       </HabitProvider>
@@ -79,3 +86,4 @@ function App() {
 }
 
 export default App
+

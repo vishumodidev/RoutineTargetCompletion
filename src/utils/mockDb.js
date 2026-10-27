@@ -153,6 +153,188 @@ export function initMockDb() {
     ];
     localStorage.setItem('mock_time_allocation', JSON.stringify(defaultTime));
   }
+
+  // Initialize Investment Profile
+  if (!localStorage.getItem('mock_investment_profile')) {
+    const defaultProfile = {
+      userId: 'usr_vishu',
+      monthlyIncomeBaseline: 75000,
+      monthlyIncomeMin: 60000,
+      monthlyIncomeMax: 80000,
+      bankSavings: 200000,
+      mutualFundHoldings: 170000,
+      emergencyFundBalance: 80000,
+      houseFundBalance: 70000,
+      daughterFundBalance: 50000,
+      monthlySavingsTarget: 20000,
+      lastUpdated: new Date().toISOString().split('T')[0]
+    };
+    localStorage.setItem('mock_investment_profile', JSON.stringify(defaultProfile));
+  }
+
+  // Initialize Reference Investment Plan & Funds
+  if (!localStorage.getItem('mock_investment_funds')) {
+    const defaultFunds = [
+      {
+        id: 'fund_nippon_mid',
+        name: 'Nippon India Mid Cap',
+        category: 'Mid Cap',
+        referenceSIP: 6000,
+        activeSIP: 0,
+        actualThisMonth: 0,
+        status: 'On Hold',
+        instruction: 'Do not add for now'
+      },
+      {
+        id: 'fund_dsp_tiger',
+        name: 'DSP India T.I.G.E.R.',
+        category: 'Thematic / Infrastructure',
+        referenceSIP: 5000,
+        activeSIP: 0,
+        actualThisMonth: 0,
+        status: 'On Hold',
+        instruction: 'Do not add for now'
+      },
+      {
+        id: 'fund_nippon_small',
+        name: 'Nippon India Small Cap',
+        category: 'Small Cap',
+        referenceSIP: 4000,
+        activeSIP: 0,
+        actualThisMonth: 0,
+        status: 'On Hold',
+        instruction: 'Do not add for now'
+      },
+      {
+        id: 'fund_dsp_small',
+        name: 'DSP India Small Cap',
+        category: 'Small Cap',
+        referenceSIP: 3000,
+        activeSIP: 0,
+        actualThisMonth: 0,
+        status: 'On Hold',
+        instruction: 'Do not add for now'
+      },
+      {
+        id: 'fund_sbi_small',
+        name: 'SBI Small Cap',
+        category: 'Small Cap',
+        referenceSIP: 2000,
+        activeSIP: 3000,
+        actualThisMonth: 3000,
+        status: 'Active',
+        instruction: 'Continue existing SBI SIP at ₹3,000'
+      }
+    ];
+    localStorage.setItem('mock_investment_funds', JSON.stringify(defaultFunds));
+  }
+
+  // Initialize Monthly Budgets
+  if (!localStorage.getItem('mock_monthly_budgets')) {
+    const now = new Date();
+    const currentMonthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const defaultBudgets = [
+      {
+        id: 'bgt_' + currentMonthYear,
+        monthYear: currentMonthYear,
+        salaryIncome: 65000,
+        trainingFreelanceIncome: 10000,
+        otherIncome: 0,
+        rent: 10500,
+        groceries: 12500,
+        utilities: 2500,
+        transport: 2000,
+        parentsSupport: 3000,
+        termInsuranceMonthly: 2000, // ₹24,000/year provision
+        healthInsuranceMonthly: 1583, // ₹19,000/year provision
+        healthcare: 1000,
+        otherExpenses: 1500,
+        actualInvestments: 3000, // SBI Small Cap active SIP
+        emergencySavings: 5000,
+        houseSavings: 5000,
+        daughterSavings: 5000,
+        notes: 'Monthly operating budget and cash-flow baseline'
+      }
+    ];
+    localStorage.setItem('mock_monthly_budgets', JSON.stringify(defaultBudgets));
+  }
+
+  // Initialize Financial Goals
+  if (!localStorage.getItem('mock_financial_goals')) {
+    const defaultGoals = [
+      {
+        id: 'goal_emergency',
+        name: 'Emergency Fund (6 Months Buffer)',
+        category: 'Emergency',
+        targetAmount: 180000,
+        currentBalance: 80000,
+        monthlyTarget: 5000,
+        actualContributionsThisMonth: 5000,
+        startDate: '2026-01-01',
+        deadline: '2027-08-31',
+        priority: 'Critical',
+        status: 'On track',
+        notes: '3 to 6 months of essential living expenses (~₹30,000/mo essential spend)'
+      },
+      {
+        id: 'goal_house',
+        name: 'House Purchase 2033 (₹50 Lakh Target)',
+        category: 'Real Estate',
+        targetAmount: 5000000,
+        downPaymentTarget: 1500000,
+        registrationCosts: 400000,
+        currentBalance: 70000,
+        monthlyTarget: 15000,
+        actualContributionsThisMonth: 5000,
+        startDate: '2026-01-01',
+        deadline: '2033-12-31',
+        priority: 'High',
+        status: 'In progress',
+        notes: 'Down payment ₹15L + registration ₹4L prioritized first. Full property price ₹50L planned with home loan balance.'
+      },
+      {
+        id: 'goal_daughter',
+        name: "Daughter's Future & Higher Education",
+        category: 'Family / Child Future',
+        targetAmount: 2500000,
+        currentBalance: 50000,
+        monthlyTarget: 5000,
+        actualContributionsThisMonth: 5000,
+        startDate: '2026-01-01',
+        deadline: '2040-06-30',
+        priority: 'High',
+        status: 'On track',
+        notes: "Dedicated compounding fund for daughter's higher education and future security"
+      },
+      {
+        id: 'goal_mutual_funds',
+        name: 'Mutual Fund Long-Term Wealth Corpus',
+        category: 'Wealth Creation',
+        targetAmount: 5000000,
+        currentBalance: 170000,
+        monthlyTarget: 3000,
+        actualContributionsThisMonth: 3000,
+        startDate: '2024-01-01',
+        deadline: '2034-12-31',
+        priority: 'Medium',
+        status: 'In progress',
+        notes: 'Current holdings ₹1,70,000. Active SBI Small Cap SIP: ₹3,000/mo. Other 4 funds on hold.'
+      }
+    ];
+    localStorage.setItem('mock_financial_goals', JSON.stringify(defaultGoals));
+  }
+
+  // Initialize Contribution Transactions
+  if (!localStorage.getItem('mock_contribution_transactions')) {
+    const today = new Date().toISOString().split('T')[0];
+    const defaultTx = [
+      { id: 'tx_1', date: today, category: 'Mutual Fund', entityName: 'SBI Small Cap Active SIP', amount: 3000, type: 'SIP', paymentMode: 'Auto-Debit', notes: 'Monthly recurring SIP' },
+      { id: 'tx_2', date: today, category: 'Emergency Fund', entityName: 'Emergency Savings Allocation', amount: 5000, type: 'Savings', paymentMode: 'Bank Transfer', notes: 'Monthly emergency buffer allocation' },
+      { id: 'tx_3', date: today, category: 'House Fund', entityName: 'House 2033 Target Allocation', amount: 5000, type: 'Savings', paymentMode: 'Bank Transfer', notes: 'Dedicated house down payment deposit' },
+      { id: 'tx_4', date: today, category: "Daughter's Fund", entityName: "Daughter's Future Allocation", amount: 5000, type: 'Savings', paymentMode: 'Bank Transfer', notes: "Monthly child education deposit" }
+    ];
+    localStorage.setItem('mock_contribution_transactions', JSON.stringify(defaultTx));
+  }
 }
 
 // Helpers to get/set tables
@@ -836,6 +1018,151 @@ export const mockDb = {
       };
     }
     throw new Error('User not found');
+  },
+
+  // INVESTMENT & FINANCIAL CONTROLLERS
+  getInvestmentOverview: (userId) => {
+    const profile = getTable('mock_investment_profile');
+    const funds = getTable('mock_investment_funds');
+    const budgets = getTable('mock_monthly_budgets');
+    const goals = getTable('mock_financial_goals');
+    const transactions = getTable('mock_contribution_transactions');
+
+    // Totals calculations
+    const referenceMonthlyTotal = funds.reduce((sum, f) => sum + (Number(f.referenceSIP) || 0), 0);
+    const activeCommitmentsTotal = funds.reduce((sum, f) => sum + (Number(f.activeSIP) || 0), 0);
+    const actualInvestmentTotal = funds.reduce((sum, f) => sum + (Number(f.actualThisMonth) || 0), 0);
+
+    return {
+      success: true,
+      profile: profile || {},
+      funds: funds || [],
+      budgets: budgets || [],
+      goals: goals || [],
+      transactions: transactions || [],
+      summary: {
+        referenceMonthlyTotal,
+        activeCommitmentsTotal,
+        actualInvestmentTotal,
+        bankSavings: profile.bankSavings || 200000,
+        mutualFundHoldings: profile.mutualFundHoldings || 170000,
+        emergencyFundBalance: profile.emergencyFundBalance || 80000,
+        houseFundBalance: profile.houseFundBalance || 70000,
+        daughterFundBalance: profile.daughterFundBalance || 50000
+      }
+    };
+  },
+
+  updateInvestmentProfile: (userId, updatedProfile) => {
+    const current = getTable('mock_investment_profile') || {};
+    const merged = { ...current, ...updatedProfile, lastUpdated: new Date().toISOString().split('T')[0] };
+    saveTable('mock_investment_profile', merged);
+    return { success: true, profile: merged };
+  },
+
+  updateInvestmentFund: (userId, fundId, fundData) => {
+    const funds = getTable('mock_investment_funds');
+    const idx = funds.findIndex(f => f.id === fundId);
+    if (idx !== -1) {
+      funds[idx] = { ...funds[idx], ...fundData };
+      saveTable('mock_investment_funds', funds);
+      return { success: true, fund: funds[idx] };
+    }
+    return { success: false, error: 'Fund not found' };
+  },
+
+  getMonthlyBudget: (userId, monthYear) => {
+    const budgets = getTable('mock_monthly_budgets');
+    const found = budgets.find(b => b.monthYear === monthYear);
+    if (found) return { success: true, budget: found };
+
+    // Default template for new month
+    const defaultBudget = {
+      id: 'bgt_' + monthYear,
+      monthYear,
+      salaryIncome: 65000,
+      trainingFreelanceIncome: 10000,
+      otherIncome: 0,
+      rent: 10500,
+      groceries: 12500,
+      utilities: 2500,
+      transport: 2000,
+      parentsSupport: 3000,
+      termInsuranceMonthly: 2000,
+      healthInsuranceMonthly: 1583,
+      healthcare: 1000,
+      otherExpenses: 1500,
+      actualInvestments: 3000,
+      emergencySavings: 5000,
+      houseSavings: 5000,
+      daughterSavings: 5000,
+      notes: ''
+    };
+    return { success: true, budget: defaultBudget };
+  },
+
+  saveMonthlyBudget: (userId, budgetData) => {
+    const budgets = getTable('mock_monthly_budgets');
+    const idx = budgets.findIndex(b => b.monthYear === budgetData.monthYear);
+    if (idx !== -1) {
+      budgets[idx] = { ...budgets[idx], ...budgetData };
+    } else {
+      budgets.push({
+        id: budgetData.id || 'bgt_' + (budgetData.monthYear || Date.now()),
+        ...budgetData
+      });
+    }
+    saveTable('mock_monthly_budgets', budgets);
+    return { success: true, budget: budgetData };
+  },
+
+  saveFinancialGoal: (userId, goalData) => {
+    const goals = getTable('mock_financial_goals');
+    const idx = goals.findIndex(g => g.id === goalData.id);
+    if (idx !== -1) {
+      goals[idx] = { ...goals[idx], ...goalData };
+    } else {
+      goals.push({
+        id: goalData.id || 'goal_' + Math.random().toString(36).substr(2, 9),
+        ...goalData
+      });
+    }
+    saveTable('mock_financial_goals', goals);
+    return { success: true, goals };
+  },
+
+  deleteFinancialGoal: (userId, goalId) => {
+    const goals = getTable('mock_financial_goals');
+    const filtered = goals.filter(g => g.id !== goalId);
+    saveTable('mock_financial_goals', filtered);
+    return { success: true, goals: filtered };
+  },
+
+  addContributionTransaction: (userId, txData) => {
+    const transactions = getTable('mock_contribution_transactions');
+    const newTx = {
+      id: 'tx_' + Math.random().toString(36).substr(2, 9),
+      date: txData.date || new Date().toISOString().split('T')[0],
+      category: txData.category,
+      entityName: txData.entityName,
+      amount: Number(txData.amount) || 0,
+      type: txData.type || 'Savings',
+      paymentMode: txData.paymentMode || 'Bank Transfer',
+      notes: txData.notes || ''
+    };
+    transactions.unshift(newTx);
+    saveTable('mock_contribution_transactions', transactions);
+
+    // Also update goal balance if entity matches goal
+    const goals = getTable('mock_financial_goals');
+    const goalIdx = goals.findIndex(g => g.name === txData.entityName || g.category === txData.category);
+    if (goalIdx !== -1) {
+      goals[goalIdx].currentBalance = (Number(goals[goalIdx].currentBalance) || 0) + newTx.amount;
+      goals[goalIdx].actualContributionsThisMonth = (Number(goals[goalIdx].actualContributionsThisMonth) || 0) + newTx.amount;
+      saveTable('mock_financial_goals', goals);
+    }
+
+    return { success: true, transaction: newTx };
   }
 };
 

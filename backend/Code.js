@@ -49,7 +49,12 @@ var SHEETS = {
   HABITS: { name: "Habits", headers: ["HabitID", "UserID", "HabitName", "Description", "Category", "XPReward", "Status"] },
   LOGS: { name: "HabitLogs", headers: ["LogID", "HabitID", "UserID", "Date", "Completed"] },
   ACHIEVEMENTS: { name: "Achievements", headers: ["AchievementID", "UserID", "BadgeName", "UnlockedDate"] },
-  ROUTINE_LOGS: { name: "RoutineLogs", headers: ["LogID", "UserID", "Date", "ActivityID", "Completed"] }
+  ROUTINE_LOGS: { name: "RoutineLogs", headers: ["LogID", "UserID", "Date", "ActivityID", "Completed"] },
+  INVESTMENT_PROFILE: { name: "InvestmentProfile", headers: ["UserID", "MonthlyIncomeMin", "MonthlyIncomeMax", "BankSavings", "MutualFundHoldings", "EmergencyFundBalance", "HouseFundBalance", "DaughterFundBalance", "MonthlySavingsTarget", "LastUpdated"] },
+  INVESTMENT_FUNDS: { name: "InvestmentFunds", headers: ["FundID", "UserID", "Name", "Category", "ReferenceSIP", "ActiveSIP", "ActualThisMonth", "Status", "Instruction"] },
+  MONTHLY_BUDGETS: { name: "MonthlyBudgets", headers: ["BudgetID", "UserID", "MonthYear", "SalaryIncome", "TrainingFreelanceIncome", "OtherIncome", "Rent", "Groceries", "ParentsSupport", "Utilities", "Transport", "TermInsuranceMonthly", "HealthInsuranceMonthly", "Healthcare", "OtherExpenses", "ActualInvestments", "EmergencySavings", "HouseSavings", "DaughterSavings", "Notes"] },
+  FINANCIAL_GOALS: { name: "FinancialGoals", headers: ["GoalID", "UserID", "Name", "Category", "TargetAmount", "DownPaymentTarget", "RegistrationCosts", "CurrentBalance", "MonthlyTarget", "StartDate", "Deadline", "Priority", "Status", "Notes"] },
+  TRANSACTIONS: { name: "ContributionTransactions", headers: ["TransactionID", "UserID", "Date", "Category", "EntityName", "Amount", "Type", "PaymentMode", "Notes"] }
 };
 
 function getUsersSheet() { return getOrCreateSheet(SHEETS.USERS.name, SHEETS.USERS.headers); }
@@ -57,6 +62,11 @@ function getHabitsSheet() { return getOrCreateSheet(SHEETS.HABITS.name, SHEETS.H
 function getLogsSheet() { return getOrCreateSheet(SHEETS.LOGS.name, SHEETS.LOGS.headers); }
 function getAchievementsSheet() { return getOrCreateSheet(SHEETS.ACHIEVEMENTS.name, SHEETS.ACHIEVEMENTS.headers); }
 function getRoutineLogsSheet() { return getOrCreateSheet(SHEETS.ROUTINE_LOGS.name, SHEETS.ROUTINE_LOGS.headers); }
+function getInvestmentProfileSheet() { return getOrCreateSheet(SHEETS.INVESTMENT_PROFILE.name, SHEETS.INVESTMENT_PROFILE.headers); }
+function getInvestmentFundsSheet() { return getOrCreateSheet(SHEETS.INVESTMENT_FUNDS.name, SHEETS.INVESTMENT_FUNDS.headers); }
+function getMonthlyBudgetsSheet() { return getOrCreateSheet(SHEETS.MONTHLY_BUDGETS.name, SHEETS.MONTHLY_BUDGETS.headers); }
+function getFinancialGoalsSheet() { return getOrCreateSheet(SHEETS.FINANCIAL_GOALS.name, SHEETS.FINANCIAL_GOALS.headers); }
+function getTransactionsSheet() { return getOrCreateSheet(SHEETS.TRANSACTIONS.name, SHEETS.TRANSACTIONS.headers); }
 
 // ORM UTILITIES FOR SHEETS
 function getSheetRows(sheet) {
@@ -165,6 +175,15 @@ function doGet(e) {
         var date = params.date;
         if (!date) return error("Missing date parameter");
         return getRoutineLogs(userId, date);
+      case "investmentOverview":
+        if (!userId) return error("Missing userId parameter");
+        return getInvestmentOverview(userId);
+      case "monthlyBudget":
+        if (!userId) return error("Missing userId parameter");
+        return getMonthlyBudget(userId, params.monthYear);
+      case "financialGoals":
+        if (!userId) return error("Missing userId parameter");
+        return getFinancialGoals(userId);
       default:
         return error("Invalid action: " + action);
     }
@@ -200,6 +219,18 @@ function doPost(e) {
         return logHabit(payload.userId, payload.habitId, payload.date, payload.completed);
       case "logRoutine":
         return logRoutineActivity(payload.userId, payload.activityId, payload.date, payload.completed, payload.xpReward);
+      case "updateInvestmentProfile":
+        return updateInvestmentProfile(payload.userId, payload.profileData);
+      case "updateInvestmentFund":
+        return updateInvestmentFund(payload.userId, payload.fundId, payload.fundData);
+      case "saveMonthlyBudget":
+        return saveMonthlyBudget(payload.userId, payload.budgetData);
+      case "saveFinancialGoal":
+        return saveFinancialGoal(payload.userId, payload.goalData);
+      case "deleteFinancialGoal":
+        return deleteFinancialGoal(payload.userId, payload.goalId);
+      case "addContributionTransaction":
+        return addContributionTransaction(payload.userId, payload.txData);
       default:
         return error("Invalid POST action: " + action);
     }
@@ -820,3 +851,248 @@ function logRoutineActivity(userId, activityId, date, completed, xpReward) {
 
   return error("User record error");
 }
+
+// 14. INVESTMENT CONTROLLERS FOR GOOGLE SHEETS
+
+function getInvestmentOverview(userId) {
+  var profileSheet = getInvestmentProfileSheet();
+  var fundsSheet = getInvestmentFundsSheet();
+  var budgetsSheet = getMonthlyBudgetsSheet();
+  var goalsSheet = getFinancialGoalsSheet();
+  var txSheet = getTransactionsSheet();
+
+  var profileRows = getSheetRows(profileSheet).filter(function (r) { return r.UserID == userId; });
+  var fundsRows = getSheetRows(fundsSheet).filter(function (r) { return r.UserID == userId; });
+  var budgetsRows = getSheetRows(budgetsSheet).filter(function (r) { return r.UserID == userId; });
+  var goalsRows = getSheetRows(goalsSheet).filter(function (r) { return r.UserID == userId; });
+  var txRows = getSheetRows(txSheet).filter(function (r) { return r.UserID == userId; });
+
+  var profile = profileRows.length > 0 ? profileRows[0] : {
+    UserID: userId,
+    MonthlyIncomeMin: 60000,
+    MonthlyIncomeMax: 80000,
+    BankSavings: 200000,
+    MutualFundHoldings: 170000,
+    EmergencyFundBalance: 80000,
+    HouseFundBalance: 70000,
+    DaughterFundBalance: 50000,
+    MonthlySavingsTarget: 20000
+  };
+
+  // Seed default 5 reference funds if none exist for user
+  if (fundsRows.length === 0) {
+    var defaultFunds = [
+      { FundID: "fund_nippon_mid", UserID: userId, Name: "Nippon India Mid Cap", Category: "Mid Cap", ReferenceSIP: 6000, ActiveSIP: 0, ActualThisMonth: 0, Status: "On Hold", Instruction: "Do not add for now" },
+      { FundID: "fund_dsp_tiger", UserID: userId, Name: "DSP India T.I.G.E.R.", Category: "Thematic / Infrastructure", ReferenceSIP: 5000, ActiveSIP: 0, ActualThisMonth: 0, Status: "On Hold", Instruction: "Do not add for now" },
+      { FundID: "fund_nippon_small", UserID: userId, Name: "Nippon India Small Cap", Category: "Small Cap", ReferenceSIP: 4000, ActiveSIP: 0, ActualThisMonth: 0, Status: "On Hold", Instruction: "Do not add for now" },
+      { FundID: "fund_dsp_small", UserID: userId, Name: "DSP India Small Cap", Category: "Small Cap", ReferenceSIP: 3000, ActiveSIP: 0, ActualThisMonth: 0, Status: "On Hold", Instruction: "Do not add for now" },
+      { FundID: "fund_sbi_small", UserID: userId, Name: "SBI Small Cap", Category: "Small Cap", ReferenceSIP: 2000, ActiveSIP: 3000, ActualThisMonth: 3000, Status: "Active", Instruction: "Continue existing SBI SIP at ₹3,000" }
+    ];
+    defaultFunds.forEach(function (f) {
+      insertRow(fundsSheet, f, SHEETS.INVESTMENT_FUNDS.headers);
+    });
+    fundsRows = defaultFunds;
+  }
+
+  // Seed default goals if none exist
+  if (goalsRows.length === 0) {
+    var defaultGoals = [
+      { GoalID: "goal_emergency", UserID: userId, Name: "Emergency Fund (6 Months Buffer)", Category: "Emergency", TargetAmount: 180000, DownPaymentTarget: 0, RegistrationCosts: 0, CurrentBalance: 80000, MonthlyTarget: 5000, StartDate: "2026-01-01", Deadline: "2027-08-31", Priority: "Critical", Status: "On track", Notes: "3 to 6 months of essential living expenses buffer" },
+      { GoalID: "goal_house", UserID: userId, Name: "House Purchase 2033 (₹50 Lakh Target)", Category: "Real Estate", TargetAmount: 5000000, DownPaymentTarget: 1500000, RegistrationCosts: 400000, CurrentBalance: 70000, MonthlyTarget: 15000, StartDate: "2026-01-01", Deadline: "2033-12-31", Priority: "High", Status: "In progress", Notes: "Down payment ₹15L + registry ₹4L prioritized first" },
+      { GoalID: "goal_daughter", UserID: userId, Name: "Daughter's Future & Higher Education", Category: "Family / Child Future", TargetAmount: 2500000, DownPaymentTarget: 0, RegistrationCosts: 0, CurrentBalance: 50000, MonthlyTarget: 5000, StartDate: "2026-01-01", Deadline: "2040-06-30", Priority: "High", Status: "On track", Notes: "Dedicated child education compounding corpus" }
+    ];
+    defaultGoals.forEach(function (g) {
+      insertRow(goalsSheet, g, SHEETS.FINANCIAL_GOALS.headers);
+    });
+    goalsRows = defaultGoals;
+  }
+
+  return response({
+    success: true,
+    profile: {
+      userId: profile.UserID,
+      monthlyIncomeMin: Number(profile.MonthlyIncomeMin) || 60000,
+      monthlyIncomeMax: Number(profile.MonthlyIncomeMax) || 80000,
+      bankSavings: Number(profile.BankSavings) || 200000,
+      mutualFundHoldings: Number(profile.MutualFundHoldings) || 170000,
+      emergencyFundBalance: Number(profile.EmergencyFundBalance) || 80000,
+      houseFundBalance: Number(profile.HouseFundBalance) || 70000,
+      daughterFundBalance: Number(profile.DaughterFundBalance) || 50000,
+      monthlySavingsTarget: Number(profile.MonthlySavingsTarget) || 20000
+    },
+    funds: fundsRows.map(function (f) {
+      return {
+        id: f.FundID,
+        name: f.Name,
+        category: f.Category,
+        referenceSIP: Number(f.ReferenceSIP) || 0,
+        activeSIP: Number(f.ActiveSIP) || 0,
+        actualThisMonth: Number(f.ActualThisMonth) || 0,
+        status: f.Status,
+        instruction: f.Instruction
+      };
+    }),
+    budgets: budgetsRows,
+    goals: goalsRows.map(function (g) {
+      return {
+        id: g.GoalID,
+        name: g.Name,
+        category: g.Category,
+        targetAmount: Number(g.TargetAmount) || 0,
+        downPaymentTarget: Number(g.DownPaymentTarget) || 0,
+        registrationCosts: Number(g.RegistrationCosts) || 0,
+        currentBalance: Number(g.CurrentBalance) || 0,
+        monthlyTarget: Number(g.MonthlyTarget) || 0,
+        startDate: getFormattedDate(g.StartDate),
+        deadline: getFormattedDate(g.Deadline),
+        priority: g.Priority,
+        status: g.Status,
+        notes: g.Notes
+      };
+    }),
+    transactions: txRows
+  });
+}
+
+function updateInvestmentProfile(userId, profileData) {
+  var sheet = getInvestmentProfileSheet();
+  var rows = getSheetRows(sheet);
+  var found = rows.find(function (r) { return r.UserID == userId; });
+
+  var payload = {
+    UserID: userId,
+    MonthlyIncomeMin: profileData.monthlyIncomeMin,
+    MonthlyIncomeMax: profileData.monthlyIncomeMax,
+    BankSavings: profileData.bankSavings,
+    MutualFundHoldings: profileData.mutualFundHoldings,
+    EmergencyFundBalance: profileData.emergencyFundBalance,
+    HouseFundBalance: profileData.houseFundBalance,
+    DaughterFundBalance: profileData.daughterFundBalance,
+    MonthlySavingsTarget: profileData.monthlySavingsTarget,
+    LastUpdated: new Date().toISOString().split("T")[0]
+  };
+
+  if (found) {
+    updateRowByColumn(sheet, "UserID", userId, payload);
+  } else {
+    insertRow(sheet, payload, SHEETS.INVESTMENT_PROFILE.headers);
+  }
+
+  return response({ success: true, profile: payload });
+}
+
+function updateInvestmentFund(userId, fundId, fundData) {
+  var sheet = getInvestmentFundsSheet();
+  var success = updateRowByColumn(sheet, "FundID", fundId, fundData);
+  return response({ success: success });
+}
+
+function getMonthlyBudget(userId, monthYear) {
+  var sheet = getMonthlyBudgetsSheet();
+  var rows = getSheetRows(sheet).filter(function (r) {
+    return r.UserID == userId && r.MonthYear == monthYear;
+  });
+  return response({ success: true, budget: rows.length > 0 ? rows[0] : null });
+}
+
+function saveMonthlyBudget(userId, budgetData) {
+  var sheet = getMonthlyBudgetsSheet();
+  var rows = getSheetRows(sheet);
+  var found = rows.find(function (r) {
+    return r.UserID == userId && r.MonthYear == budgetData.monthYear;
+  });
+
+  var payload = {
+    BudgetID: budgetData.id || ("bgt_" + budgetData.monthYear),
+    UserID: userId,
+    MonthYear: budgetData.monthYear,
+    SalaryIncome: budgetData.salaryIncome,
+    TrainingFreelanceIncome: budgetData.trainingFreelanceIncome,
+    OtherIncome: budgetData.otherIncome,
+    Rent: budgetData.rent,
+    Groceries: budgetData.groceries,
+    ParentsSupport: budgetData.parentsSupport,
+    Utilities: budgetData.utilities,
+    Transport: budgetData.transport,
+    TermInsuranceMonthly: budgetData.termInsuranceMonthly,
+    HealthInsuranceMonthly: budgetData.healthInsuranceMonthly,
+    Healthcare: budgetData.healthcare,
+    OtherExpenses: budgetData.otherExpenses,
+    ActualInvestments: budgetData.actualInvestments,
+    EmergencySavings: budgetData.emergencySavings,
+    HouseSavings: budgetData.houseSavings,
+    DaughterSavings: budgetData.daughterSavings,
+    Notes: budgetData.notes || ""
+  };
+
+  if (found) {
+    updateRowByColumn(sheet, "BudgetID", found.BudgetID, payload);
+  } else {
+    insertRow(sheet, payload, SHEETS.MONTHLY_BUDGETS.headers);
+  }
+
+  return response({ success: true, budget: payload });
+}
+
+function getFinancialGoals(userId) {
+  var sheet = getFinancialGoalsSheet();
+  var goals = getSheetRows(sheet).filter(function (r) { return r.UserID == userId; });
+  return response({ success: true, goals: goals });
+}
+
+function saveFinancialGoal(userId, goalData) {
+  var sheet = getFinancialGoalsSheet();
+  var rows = getSheetRows(sheet);
+  var goalId = goalData.id || ("goal_" + Math.random().toString(36).substr(2, 9));
+  var found = rows.find(function (r) { return r.GoalID == goalId; });
+
+  var payload = {
+    GoalID: goalId,
+    UserID: userId,
+    Name: goalData.name,
+    Category: goalData.category,
+    TargetAmount: goalData.targetAmount,
+    DownPaymentTarget: goalData.downPaymentTarget || 0,
+    RegistrationCosts: goalData.registrationCosts || 0,
+    CurrentBalance: goalData.currentBalance || 0,
+    MonthlyTarget: goalData.monthlyTarget || 0,
+    StartDate: goalData.startDate,
+    Deadline: goalData.deadline,
+    Priority: goalData.priority,
+    Status: goalData.status,
+    Notes: goalData.notes || ""
+  };
+
+  if (found) {
+    updateRowByColumn(sheet, "GoalID", goalId, payload);
+  } else {
+    insertRow(sheet, payload, SHEETS.FINANCIAL_GOALS.headers);
+  }
+
+  return response({ success: true, goal: payload });
+}
+
+function deleteFinancialGoal(userId, goalId) {
+  var sheet = getFinancialGoalsSheet();
+  var success = deleteRowByColumn(sheet, "GoalID", goalId);
+  return response({ success: success });
+}
+
+function addContributionTransaction(userId, txData) {
+  var sheet = getTransactionsSheet();
+  var txId = "tx_" + Math.random().toString(36).substr(2, 9);
+  var payload = {
+    TransactionID: txId,
+    UserID: userId,
+    Date: txData.date || new Date().toISOString().split("T")[0],
+    Category: txData.category,
+    EntityName: txData.entityName,
+    Amount: txData.amount,
+    Type: txData.type || "Savings",
+    PaymentMode: txData.paymentMode || "Bank Transfer",
+    Notes: txData.notes || ""
+  };
+  insertRow(sheet, payload, SHEETS.TRANSACTIONS.headers);
+  return response({ success: true, transaction: payload });
+}
+

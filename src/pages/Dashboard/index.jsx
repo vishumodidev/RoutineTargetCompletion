@@ -31,13 +31,19 @@ import {
   Flame,
   Clock,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Landmark,
+  ShieldCheck,
+  PiggyBank,
+  Wallet
 } from 'lucide-react';
 import { getLevelDetails } from '../../utils';
+import { InvestmentContext } from '../../context/InvestmentContext';
 import toast from 'react-hot-toast';
 
 export default function Dashboard() {
   const { user, updateUserProfile } = useContext(AuthContext);
+  const { summary, cashFlow } = useContext(InvestmentContext);
   const { 
     todayBigFive, 
     opportunities, 
@@ -233,6 +239,15 @@ FINANCIAL OVERVIEW:
 - Target Milestone: ₹${opportunityStats.milestone.toLocaleString('en-IN')}
 - Remaining Gap: ₹${opportunityStats.gap.toLocaleString('en-IN')}
 
+FINANCIAL & INVESTMENT OUTLOOK:
+- Reference Monthly SIP: ₹${summary ? summary.referenceMonthlyTotal.toLocaleString('en-IN') : '20,000'} (Target Blueprint)
+- Active SIP Commitments: ₹${summary ? summary.activeCommitmentsTotal.toLocaleString('en-IN') : '3,000'} (SBI Small Cap)
+- Actual Monthly Contributions: ₹${summary ? summary.actualMonthlyContributions.toLocaleString('en-IN') : '3,000'}
+- Goal Savings Allocated: ₹${cashFlow ? cashFlow.totalGoalSavings.toLocaleString('en-IN') : '15,000'}
+- Emergency Buffer Balance: ₹${summary ? summary.emergencyFundBalance.toLocaleString('en-IN') : '80,000'}
+- House Fund 2033 Balance: ₹${summary ? summary.houseFundBalance.toLocaleString('en-IN') : '70,000'}
+- Available Monthly Balance: ₹${cashFlow ? cashFlow.availableBalance.toLocaleString('en-IN') : '0'}
+
 AI / TECH FOCUS:
 - Focus: ${user.currentSkillFocus || 'Agentic AI'}
 - Learning Task: ${user.todayLearningTarget || 'Tool Calling — 60 min'}
@@ -275,8 +290,9 @@ Tell me:
 5. How is my training/client pipeline?
 6. How is my MI business progressing?
 7. What should I prioritize tomorrow?
-8. Should my career strategy change based on the data?`;
-  }, [todayBigFive, opportunities, todayTime, opportunityStats, user, calculatedScore]);
+8. Should my career strategy change based on the data?
+9. Is my monthly spending and investment allocation sustainable relative to my confirmed earnings?`;
+  }, [todayBigFive, opportunities, todayTime, opportunityStats, user, calculatedScore, summary, cashFlow]);
 
   const copyMentorReport = () => {
     navigator.clipboard.writeText(mentorPromptText);
@@ -454,6 +470,87 @@ Tell me:
           </div>
         </div>
       </section>
+
+      {/* SECTION: Integrated Financial & Investment Blueprint Snapshot */}
+      {summary && (
+        <section className="bg-bg-card border border-border-dark rounded-xl p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border-dark/60 pb-3">
+            <div className="flex items-center space-x-2.5">
+              <div className="h-8 w-8 rounded-lg bg-brand-primary/20 flex items-center justify-center text-brand-primary">
+                <Landmark className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  Financial Planning & Investment Snapshot
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold lowercase">
+                    active sip ₹3,000
+                  </span>
+                </h3>
+                <p className="text-2xs text-text-secondary">
+                  Preserved reference ₹20k plan (4 funds on hold). Dedicated tracking for emergency buffer & house 2033.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => navigate('/investments')}
+                className="flex items-center px-3 py-1.5 text-xs font-semibold text-brand-primary hover:text-white bg-brand-primary/10 hover:bg-brand-primary border border-brand-primary/30 rounded-lg transition-colors cursor-pointer"
+              >
+                <span>Investment Planner</span>
+                <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </button>
+              <button
+                onClick={() => navigate('/financial-goals')}
+                className="flex items-center px-3 py-1.5 text-xs font-semibold text-purple-400 hover:text-white bg-purple-500/10 hover:bg-purple-600 border border-purple-500/30 rounded-lg transition-colors cursor-pointer"
+              >
+                <span>Financial Goals</span>
+                <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
+            <div className="p-3 bg-bg-dark/40 border border-border-dark rounded-lg">
+              <span className="text-[9px] font-bold text-text-secondary uppercase">Active SIP (SBI)</span>
+              <p className="text-base font-extrabold text-brand-primary mt-0.5">₹{summary.activeCommitmentsTotal.toLocaleString('en-IN')}</p>
+              <span className="text-[9px] text-emerald-400 font-semibold">Active Commitment</span>
+            </div>
+
+            <div className="p-3 bg-bg-dark/40 border border-border-dark rounded-lg">
+              <span className="text-[9px] font-bold text-text-secondary uppercase">Reference Target</span>
+              <p className="text-base font-extrabold text-amber-400 mt-0.5">₹{summary.referenceMonthlyTotal.toLocaleString('en-IN')}</p>
+              <span className="text-[9px] text-amber-400/80 font-semibold">4 Funds On Hold</span>
+            </div>
+
+            <div className="p-3 bg-bg-dark/40 border border-border-dark rounded-lg">
+              <span className="text-[9px] font-bold text-text-secondary uppercase">Monthly Savings</span>
+              <p className="text-base font-extrabold text-cyan-400 mt-0.5">₹{(cashFlow?.totalGoalSavings || 15000).toLocaleString('en-IN')}</p>
+              <span className="text-[9px] text-text-secondary">Emergency + House</span>
+            </div>
+
+            <div className="p-3 bg-bg-dark/40 border border-border-dark rounded-lg">
+              <span className="text-[9px] font-bold text-text-secondary uppercase">Emergency Buffer</span>
+              <p className="text-base font-extrabold text-white mt-0.5">₹{summary.emergencyFundBalance.toLocaleString('en-IN')}</p>
+              <span className="text-[9px] text-emerald-400 font-semibold">Target ₹1.8L</span>
+            </div>
+
+            <div className="p-3 bg-bg-dark/40 border border-border-dark rounded-lg">
+              <span className="text-[9px] font-bold text-text-secondary uppercase">House 2033 Fund</span>
+              <p className="text-base font-extrabold text-white mt-0.5">₹{summary.houseFundBalance.toLocaleString('en-IN')}</p>
+              <span className="text-[9px] text-purple-400 font-semibold">Target ₹15L Down</span>
+            </div>
+
+            <div className="p-3 bg-bg-dark/40 border border-border-dark rounded-lg">
+              <span className="text-[9px] font-bold text-text-secondary uppercase">Unallocated Cash</span>
+              <p className={`text-base font-extrabold mt-0.5 ${(cashFlow?.availableBalance || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                ₹{(cashFlow?.availableBalance || 0).toLocaleString('en-IN')}
+              </p>
+              <span className="text-[9px] text-text-secondary">After all outflows</span>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Grid: Sections 3 & 5 - Today's Big 5 & Technology/Career */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
