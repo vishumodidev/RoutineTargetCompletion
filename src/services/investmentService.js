@@ -1,7 +1,7 @@
 import api from './api';
 import { mockDb } from '../utils/mockDb';
 
-const isSheetsEnabled = !!import.meta.env.VITE_API_URL;
+const isSheetsEnabled = typeof import.meta !== 'undefined' && !!import.meta?.env?.VITE_API_URL;
 
 export const formatINR = (value) => {
   const num = Number(value) || 0;

@@ -15,7 +15,7 @@ import { mockDb } from '../utils/mockDb';
 import { getLevelDetails } from '../utils';
 import api from './api';
 
-const isSheetsEnabled = !!import.meta.env.VITE_API_URL;
+const isSheetsEnabled = typeof import.meta !== 'undefined' && !!import.meta?.env?.VITE_API_URL;
 
 // Helper to calculate streak from logs array
 function calculateStreakFromLogs(userLogs) {

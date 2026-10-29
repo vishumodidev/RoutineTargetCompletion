@@ -1,7 +1,7 @@
 import { mockDb } from '../utils/mockDb';
 import api from './api';
 
-const isSheetsEnabled = !!import.meta.env.VITE_API_URL;
+const isSheetsEnabled = typeof import.meta !== 'undefined' && !!import.meta?.env?.VITE_API_URL;
 
 export const ROUTINE_TEMPLATES = {
   weekday: [

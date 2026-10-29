@@ -556,14 +556,41 @@ Tell me:
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* SECTION 3: Today's Big 5 */}
         <div className="lg:col-span-7 bg-bg-card border border-border-dark rounded-xl p-5 space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap justify-between items-center gap-2">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center">
               <CheckSquare className="h-4.5 w-4.5 text-brand-primary mr-2" />
               Today's Big 5 Highest-Value Actions
             </h3>
-            <span className="text-3xs text-yellow-400 font-bold bg-yellow-400/10 px-2 py-0.5 rounded flex items-center">
-              <Flame className="h-3 w-3 mr-1 fill-yellow-400" /> XP Multipliers
-            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                onClick={() => navigate('/ai-assistant?tab=morning')}
+                className="text-3xs font-semibold text-amber-400 hover:text-white flex items-center bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 px-2 py-0.5 rounded transition-colors"
+                title="Morning Planning"
+              >
+                ☀️ Morning
+              </button>
+              <button
+                onClick={() => navigate('/ai-assistant?tab=evening')}
+                className="text-3xs font-semibold text-indigo-400 hover:text-white flex items-center bg-indigo-400/10 hover:bg-indigo-400/20 border border-indigo-400/30 px-2 py-0.5 rounded transition-colors"
+                title="Evening Review"
+              >
+                🌙 Evening
+              </button>
+              <button
+                onClick={() => navigate('/ai-assistant?tab=weekly')}
+                className="text-3xs font-semibold text-cyan-400 hover:text-white flex items-center bg-cyan-400/10 hover:bg-cyan-400/20 border border-cyan-400/30 px-2 py-0.5 rounded transition-colors"
+                title="Weekly Review"
+              >
+                📊 Weekly
+              </button>
+              <button
+                onClick={() => navigate('/ai-assistant')}
+                className="text-3xs font-semibold text-brand-primary hover:text-white flex items-center bg-brand-primary/10 hover:bg-brand-primary/20 border border-brand-primary/30 px-2 py-0.5 rounded transition-colors"
+                title="Open AI Daily Planner"
+              >
+                <Sparkles className="h-3 w-3 mr-1 text-brand-primary" /> AI Planner
+              </button>
+            </div>
           </div>
 
           <div className="space-y-2.5">

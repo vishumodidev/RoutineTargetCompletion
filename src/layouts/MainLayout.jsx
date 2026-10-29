@@ -17,7 +17,9 @@ import {
   Sword,
   Milestone,
   Landmark,
-  Target
+  Target,
+  ListTodo,
+  Sparkles
 } from 'lucide-react';
 
 export default function MainLayout() {
@@ -38,6 +40,8 @@ export default function MainLayout() {
 
   const navLinks = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/ai-assistant', label: 'AI Assistant', icon: Sparkles },
+    { to: '/tasks', label: 'Tasks', icon: ListTodo },
     { to: '/routine', label: 'Routine', icon: Clock },
     { to: '/habits', label: 'Habits', icon: CheckSquare },
     { to: '/roadmap', label: 'Roadmap', icon: Milestone },

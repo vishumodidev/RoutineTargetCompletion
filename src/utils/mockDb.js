@@ -1,4 +1,4 @@
-import { getLevelDetails } from './index';
+import { getLevelDetails } from './index.js';
 
 // Initialize mock storage if empty
 export function initMockDb() {
@@ -137,6 +137,70 @@ export function initMockDb() {
       { id: 'b5_5', category: 'MI BUSINESS', taskName: '5 prospects + 3 follow-ups + distributor coaching', status: 'Not Started', xpReward: 20, date: todayStr }
     ];
     localStorage.setItem('mock_big_five', JSON.stringify(defaultBigFive));
+  }
+
+  // Initialize Tasks
+  if (!localStorage.getItem('mock_tasks')) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const defaultTasks = [
+      {
+        taskId: 'tsk_1',
+        userId: 'usr_vishu',
+        title: 'Complete AI CRM Lead Qualification Workflow',
+        description: 'Implement structured output parser and lead validation tools',
+        category: 'AI Agent Development',
+        projectArea: 'AI CRM Agent',
+        linkedGoalId: 'goal_house',
+        priority: 'High',
+        status: 'In Progress',
+        estimatedDuration: 60,
+        actualDuration: 30,
+        startDate: todayStr,
+        dueDate: todayStr,
+        deadlineType: 'Hard',
+        dependencies: '',
+        incomeImpact: 'High',
+        importance: 85,
+        urgency: 80,
+        readiness: 100,
+        nextAction: 'Write zod schema test cases',
+        recurrence: 'None',
+        source: 'Internal',
+        externalId: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        completedAt: ''
+      },
+      {
+        taskId: 'tsk_2',
+        userId: 'usr_vishu',
+        title: 'Follow up with 3 Corporate Training Leads',
+        description: 'Send course outlines for GenAI corporate workshop',
+        category: 'Corporate Training',
+        projectArea: 'Corporate Workshops',
+        linkedGoalId: 'goal_emergency',
+        priority: 'Critical',
+        status: 'Planned',
+        estimatedDuration: 45,
+        actualDuration: 0,
+        startDate: todayStr,
+        dueDate: todayStr,
+        deadlineType: 'Hard',
+        dependencies: '',
+        incomeImpact: 'High',
+        importance: 90,
+        urgency: 90,
+        readiness: 100,
+        nextAction: 'Email proposal to HR director',
+        recurrence: 'None',
+        source: 'Internal',
+        externalId: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        completedAt: ''
+      }
+    ];
+    localStorage.setItem('mock_tasks', JSON.stringify(defaultTasks));
   }
 
   // Initialize Time Allocation
@@ -1163,6 +1227,190 @@ export const mockDb = {
     }
 
     return { success: true, transaction: newTx };
+  },
+
+  getTasks: (userId, filterParams) => {
+    let tasks = getTable('mock_tasks').filter(t => t.userId === userId);
+    if (filterParams && filterParams.status) {
+      tasks = tasks.filter(t => t.status === filterParams.status);
+    }
+    if (filterParams && filterParams.category) {
+      tasks = tasks.filter(t => t.category === filterParams.category);
+    }
+    return { success: true, tasks };
+  },
+
+  saveTask: (userId, taskData) => {
+    if (!taskData || !taskData.title || String(taskData.title).trim() === '') {
+      throw new Error('Task title is required');
+    }
+    const tasks = getTable('mock_tasks');
+    const taskId = taskData.taskId || ('tsk_' + Math.random().toString(36).substr(2, 9));
+    const now = new Date().toISOString();
+    const existingIdx = tasks.findIndex(t => t.taskId === taskId);
+
+    if (existingIdx !== -1 && tasks[existingIdx].userId !== userId) {
+      throw new Error("Unauthorized: cannot modify another user's task");
+    }
+
+    const status = taskData.status || (existingIdx !== -1 ? tasks[existingIdx].status : 'Inbox');
+    let completedAt = existingIdx !== -1 ? (tasks[existingIdx].completedAt || '') : '';
+    if (status === 'Completed' && !completedAt) {
+      completedAt = now;
+    } else if (status !== 'Completed') {
+      completedAt = '';
+    }
+
+    const existing = existingIdx !== -1 ? tasks[existingIdx] : null;
+
+    const payload = {
+      taskId,
+      userId,
+      title: String(taskData.title).trim(),
+      description: taskData.description !== undefined ? taskData.description : (existing ? existing.description : ''),
+      category: taskData.category || (existing ? existing.category : 'General'),
+      projectArea: taskData.projectArea !== undefined ? taskData.projectArea : (existing ? existing.projectArea : ''),
+      linkedGoalId: taskData.linkedGoalId !== undefined ? taskData.linkedGoalId : (existing ? existing.linkedGoalId : ''),
+      priority: taskData.priority || (existing ? existing.priority : 'Medium'),
+      status,
+      estimatedDuration: taskData.estimatedDuration !== undefined ? Number(taskData.estimatedDuration) : (existing ? existing.estimatedDuration : 0),
+      actualDuration: taskData.actualDuration !== undefined ? Number(taskData.actualDuration) : (existing ? existing.actualDuration : 0),
+      startDate: taskData.startDate !== undefined ? taskData.startDate : (existing ? existing.startDate : ''),
+      dueDate: taskData.dueDate !== undefined ? taskData.dueDate : (existing ? existing.dueDate : ''),
+      deadlineType: taskData.deadlineType || (existing ? existing.deadlineType : 'Flexible'),
+      dependencies: taskData.dependencies !== undefined ? taskData.dependencies : (existing ? existing.dependencies : ''),
+      incomeImpact: taskData.incomeImpact || (existing ? existing.incomeImpact : 'None'),
+      importance: taskData.importance !== undefined ? Number(taskData.importance) : (existing ? existing.importance : 50),
+      urgency: taskData.urgency !== undefined ? Number(taskData.urgency) : (existing ? existing.urgency : 50),
+      readiness: taskData.readiness !== undefined ? Number(taskData.readiness) : (existing ? existing.readiness : 100),
+      nextAction: taskData.nextAction !== undefined ? taskData.nextAction : (existing ? existing.nextAction : ''),
+      recurrence: taskData.recurrence !== undefined ? taskData.recurrence : (existing ? existing.recurrence : 'None'),
+      source: taskData.source || (existing ? existing.source : 'Internal'),
+      externalId: taskData.externalId !== undefined ? taskData.externalId : (existing ? existing.externalId : ''),
+      createdAt: existing ? (existing.createdAt || now) : now,
+      updatedAt: now,
+      completedAt
+    };
+
+    if (existingIdx !== -1) {
+      tasks[existingIdx] = payload;
+    } else {
+      tasks.unshift(payload);
+    }
+
+    saveTable('mock_tasks', tasks);
+    return { success: true, task: payload };
+  },
+
+  deleteTask: (userId, taskId) => {
+    const tasks = getTable('mock_tasks');
+    const existing = tasks.find(t => t.taskId === taskId);
+    if (!existing) {
+      throw new Error('Task not found');
+    }
+    if (existing.userId !== userId) {
+      throw new Error("Unauthorized: cannot delete another user's task");
+    }
+    const filtered = tasks.filter(t => t.taskId !== taskId);
+    saveTable('mock_tasks', filtered);
+    return { success: true, taskId };
+  },
+
+  getDailyPlan: (userId, planDate) => {
+    const plans = getTable('mock_daily_plans');
+    const targetDate = planDate.includes('T') ? planDate.split('T')[0] : planDate;
+    const plan = plans.find(p => p.userId === userId && p.planDate === targetDate);
+    return { success: true, plan: plan || null };
+  },
+
+  saveDailyPlan: (userId, planData) => {
+    if (!planData || !planData.planDate) {
+      throw new Error('planDate is required for daily plan');
+    }
+    const plans = getTable('mock_daily_plans');
+    const targetDate = planData.planDate.includes('T') ? planData.planDate.split('T')[0] : planData.planDate;
+    const existingIdx = plans.findIndex(p => p.userId === userId && p.planDate === targetDate);
+    const now = new Date().toISOString();
+    const planId = existingIdx !== -1 ? plans[existingIdx].planId : ('plan_' + targetDate + '_' + Math.random().toString(36).substr(2, 6));
+
+    const payload = {
+      planId,
+      userId,
+      planDate: targetDate,
+      dayType: planData.dayType || 'NORMAL',
+      availableMinutes: Number(planData.availableMinutes) || 480,
+      plannedMinutes: Number(planData.plannedMinutes) || 0,
+      selectedTaskIds: planData.selectedTaskIds || [],
+      taskOrder: planData.taskOrder || [],
+      acceptanceStatuses: planData.acceptanceStatuses || {},
+      deferredTasks: planData.deferredTasks || [],
+      selectionRationale: planData.selectionRationale || '',
+      createdAt: existingIdx !== -1 ? (plans[existingIdx].createdAt || now) : now,
+      updatedAt: now
+    };
+
+    if (existingIdx !== -1) {
+      plans[existingIdx] = payload;
+    } else {
+      plans.unshift(payload);
+    }
+
+    saveTable('mock_daily_plans', plans);
+    return { success: true, plan: payload };
+  },
+
+  getReview: (userId, reviewType, periodKey) => {
+    const reviews = getTable('mock_reviews');
+    const targetKey = String(periodKey || '').split('T')[0].trim();
+    const targetType = String(reviewType || '').toUpperCase();
+    const review = reviews.find(r => r.userId === userId && String(r.reviewType).toUpperCase() === targetType && String(r.periodKey).trim() === targetKey);
+    return { success: true, review: review || null };
+  },
+
+  getReviewsHistory: (userId, reviewType) => {
+    const reviews = getTable('mock_reviews');
+    const filtered = reviews.filter(r => {
+      if (r.userId !== userId) return false;
+      if (reviewType && String(r.reviewType).toUpperCase() !== String(reviewType).toUpperCase()) return false;
+      return true;
+    });
+    filtered.sort((a, b) => (b.periodKey || '').localeCompare(a.periodKey || ''));
+    return { success: true, reviews: filtered };
+  },
+
+  saveReview: (userId, reviewData) => {
+    if (!reviewData || !reviewData.reviewType || !reviewData.periodKey) {
+      throw new Error('reviewType and periodKey are required for review');
+    }
+    const reviews = getTable('mock_reviews');
+    const targetKey = String(reviewData.periodKey).split('T')[0].trim();
+    const targetType = String(reviewData.reviewType).toUpperCase();
+    const existingIdx = reviews.findIndex(r => r.userId === userId && String(r.reviewType).toUpperCase() === targetType && String(r.periodKey).trim() === targetKey);
+    const now = new Date().toISOString();
+    const reviewId = existingIdx !== -1 ? reviews[existingIdx].reviewId : (reviewData.reviewId || ('rev_' + targetKey + '_' + targetType.toLowerCase() + '_' + Math.random().toString(36).substr(2, 6)));
+
+    const payload = {
+      reviewId,
+      userId,
+      reviewType: targetType,
+      periodKey: targetKey,
+      linkedPlanId: reviewData.linkedPlanId || '',
+      metrics: reviewData.metrics || {},
+      reflectionText: reviewData.reflectionText || '',
+      deferrals: Array.isArray(reviewData.deferrals) ? reviewData.deferrals : [],
+      nextSteps: Array.isArray(reviewData.nextSteps) ? reviewData.nextSteps : [],
+      createdAt: existingIdx !== -1 ? (reviews[existingIdx].createdAt || now) : now,
+      updatedAt: now
+    };
+
+    if (existingIdx !== -1) {
+      reviews[existingIdx] = payload;
+    } else {
+      reviews.unshift(payload);
+    }
+
+    saveTable('mock_reviews', reviews);
+    return { success: true, review: payload };
   }
 };
 

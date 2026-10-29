@@ -163,6 +163,82 @@ Audit trail of actual investments and savings deposits.
 
 ---
 
+## 10. Sheet: `Tasks`
+Consolidates one-time tasks, recurring tasks, and milestone deliverables across all career, business, and personal areas.
+
+| Column Name | Data Type | Key Type | Description | Example Value |
+| :--- | :--- | :--- | :--- | :--- |
+| **TaskID** | String (UUID) | Primary Key | Unique task identifier | `tsk_8m2k1p4` |
+| **UserID** | String (UUID) | Foreign Key | Owner of the task (references `Users.UserID`) | `usr_vishu` |
+| **Title** | String | - | Task title / actionable headline | `Build Lead Qualification Workflow` |
+| **Description** | String | - | Detailed task description | `Implement tool-calling chain for CRM leads` |
+| **Category** | String | - | Life / Business domain | `AI Agent Dev` |
+| **ProjectArea** | String | - | Specific project or focus area | `AI CRM Agent` |
+| **LinkedGoalID** | String (UUID) | Foreign Key | Optional reference to `FinancialGoals.GoalID` or milestone | `goal_house` |
+| **Priority** | String | - | Initial band (`Critical`, `High`, `Medium`, `Low`) | `High` |
+| **Status** | String | - | State (`Inbox`, `Planned`, `In Progress`, `Blocked`, `Completed`, `Deferred`, `Cancelled`) | `In Progress` |
+| **EstimatedDuration** | Number | - | Estimated minutes to complete | `60` |
+| **ActualDuration** | Number | - | Tracked minutes spent | `45` |
+| **StartDate** | Date (YYYY-MM-DD) | - | Target start date | `2026-10-28` |
+| **DueDate** | Date (YYYY-MM-DD) | - | Target completion deadline | `2026-10-29` |
+| **DeadlineType** | String | - | `Hard`, `Soft`, or `Flexible` | `Hard` |
+| **Dependencies** | String | - | Dependent task IDs or blockers | `tsk_setup_db` |
+| **IncomeImpact** | String | - | `High`, `Medium`, `Low`, or `None` | `High` |
+| **Importance** | Number | - | 0 to 100 importance score | `85` |
+| **Urgency** | Number | - | 0 to 100 urgency score | `80` |
+| **Readiness** | Number | - | 0 to 100 execution readiness | `100` |
+| **NextAction** | String | - | Single concrete next physical step | `Write the prompt schema in zod` |
+| **Recurrence** | String | - | `None`, `Daily`, `Weekly`, `Monthly` | `None` |
+| **Source** | String | - | Origin (`Internal`, `GoogleTasks`, `Manual`) | `Internal` |
+| **ExternalID** | String | - | External integration ID | `` |
+| **CreatedAt** | String (ISO) | - | Record creation timestamp | `2026-10-28T08:00:00.000Z` |
+| **UpdatedAt** | String (ISO) | - | Last modification timestamp | `2026-10-28T09:30:00.000Z` |
+| **CompletedAt** | String (ISO) | - | Completion timestamp | `` |
+
+---
+
+---
+
+## 11. Sheet: `DailyPlans`
+Stores the daily Big 5 selections, capacity calculations, acceptance records, and deferral notes.
+
+| Column Name | Data Type | Key Type | Description | Example Value |
+| :--- | :--- | :--- | :--- | :--- |
+| **PlanID** | String (UUID) | Primary Key | Unique plan identifier | `plan_2026-10-28_x9f2` |
+| **UserID** | String (UUID) | Foreign Key | Owner of the plan (references `Users.UserID`) | `usr_vishu` |
+| **PlanDate** | Date (YYYY-MM-DD) | Unique Index | Date of the daily plan | `2026-10-28` |
+| **DayType** | String | - | `NORMAL`, `TRAINING`, `CLIENT`, `TRAVEL`, `RECOVERY` | `NORMAL` |
+| **AvailableMinutes** | Number | - | Calculated available productive time | `480` |
+| **PlannedMinutes** | Number | - | Sum of estimated duration of accepted tasks | `315` |
+| **SelectedTaskIDs** | String (CSV) | - | Comma-separated task IDs in recommended order | `tsk_1,tsk_2,tsk_5` |
+| **TaskOrder** | String (CSV) | - | Customized reordered task IDs | `tsk_2,tsk_1,tsk_5` |
+| **AcceptanceStatuses** | String (JSON) | - | Map of task ID to acceptance state | `{"tsk_1":true,"tsk_2":true}` |
+| **DeferredTasksJSON** | String (JSON) | - | List of deferred tasks with recorded reasons | `[{"taskId":"tsk_9","reason":"Capacity overflow"}]` |
+| **SelectionRationale** | String | - | Rationale for daily plan selection | `Prioritized 2 Critical revenue deliverables and 1 unblocking task` |
+| **CreatedAt** | String (ISO) | - | Creation timestamp | `2026-10-28T06:30:00.000Z` |
+| **UpdatedAt** | String (ISO) | - | Last modification timestamp | `2026-10-28T07:15:00.000Z` |
+
+---
+
+## 12. Sheet: `Reviews`
+Stores guided morning planning confirmations, evening reviews, reflections, structured deferral logs, and weekly progress reviews.
+
+| Column Name | Data Type | Key Type | Description | Example Value |
+| :--- | :--- | :--- | :--- | :--- |
+| **ReviewID** | String (UUID) | Primary Key | Unique review record identifier | `rev_2026-10-28_evening_7b1a` |
+| **UserID** | String (UUID) | Foreign Key | Owner of the review (references `Users.UserID`) | `usr_vishu` |
+| **ReviewType** | String | - | `MORNING`, `EVENING`, `WEEKLY` | `EVENING` |
+| **PeriodKey** | String | - | `YYYY-MM-DD` for daily reviews, `YYYY-Www` for weekly reviews | `2026-10-28` or `2026-W44` |
+| **LinkedPlanID** | String (UUID) | Foreign Key | Associated `DailyPlans.PlanID` (optional) | `plan_2026-10-28_x9f2` |
+| **MetricsJSON** | String (JSON) | - | Summary metrics object (planned vs completed, rates, durations) | `{"tasksPlanned":5,"tasksCompleted":4,"completionRate":80}` |
+| **ReflectionText** | String | - | User reflection notes, wins, or lessons learned | `Strong deep work morning, office sprint delayed follow-up` |
+| **DeferralsJSON** | String (JSON) | - | Array of deferred tasks with standardized reason categories | `[{"taskId":"tsk_3","reason":"Unexpected commitment"}]` |
+| **NextStepsJSON** | String (JSON) | - | Suggested priorities or action items for next session | `["Follow up on client proposal","Finish unit tests"]` |
+| **CreatedAt** | String (ISO) | - | Initial submission timestamp | `2026-10-28T18:00:00.000Z` |
+| **UpdatedAt** | String (ISO) | - | Last modification timestamp | `2026-10-28T18:30:00.000Z` |
+
+---
+
 ## Relationships & Integrity Rules
 
 ```mermaid
@@ -175,12 +251,32 @@ erDiagram
     Users ||--o{ MonthlyBudgets : "manages"
     Users ||--o{ FinancialGoals : "targets"
     Users ||--o{ ContributionTransactions : "records"
+    Users ||--o{ Tasks : "manages"
+    Users ||--o{ DailyPlans : "generates"
+    Users ||--o{ Reviews : "conducts"
+    DailyPlans ||--o{ Reviews : "summarized by"
+    FinancialGoals ||--o{ Tasks : "links to"
     Habits ||--o{ HabitLogs : "logs"
 ```
 
-1. **Cascade Deletes**: If a user is deleted, their habits, logs, achievements, financial profiles, and goals should be deleted.
+1. **Cascade Deletes**: If a user is deleted, their habits, logs, achievements, financial profiles, goals, tasks, daily plans, and reviews should be deleted.
 2. **Uniqueness Rules**:
    - `Users.Email` must be unique.
    - For `HabitLogs`, the combination of `(HabitID, UserID, Date)` must be unique.
    - For `MonthlyBudgets`, the combination of `(UserID, MonthYear)` must be unique.
+   - For `Tasks`, `TaskID` must be unique.
+   - For `DailyPlans`, the combination of `(UserID, PlanDate)` must be unique. Multiple saves on the same day perform an idempotent update.
+   - For `Reviews`, the combination of `(UserID, ReviewType, PeriodKey)` must be unique. Resubmitting an evening or weekly review updates the existing row in place.
+
+---
+
+## 13. Server-Side Security & AI Script Properties
+
+The AI Assistant integration (Phase 6) enforces server-side execution with zero browser-visible credentials:
+
+| Property Name | Location | Required | Description |
+| :--- | :--- | :--- | :--- |
+| **`GEMINI_API_KEY`** | Google Apps Script `ScriptProperties` | Optional | API key for Gemini 2.5 Flash gateway (`backend/Code.js`). If absent, the application gracefully operates using deterministic heuristic fallbacks. |
+
+> **Security Rule**: `GEMINI_API_KEY` is accessed exclusively in Apps Script via `PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY")`. It is never returned to the frontend client, bundled into Vite assets, or saved in the spreadsheet cells.
 
