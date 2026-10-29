@@ -514,7 +514,7 @@ export default function Tasks() {
       {/* Score Explanation Modal */}
       {explainingTask && explainingTask.scoreBreakdown && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-bg-card border border-border-dark rounded-2xl w-full max-w-lg shadow-2xl p-6 space-y-4 animate-scale-up">
+          <div className="bg-bg-card border border-border-dark rounded-2xl w-full max-w-lg shadow-2xl p-4 sm:p-6 space-y-4 animate-scale-up">
             <div className="flex items-center justify-between border-b border-border-dark pb-3">
               <div>
                 <h3 className="text-lg font-bold text-text-primary flex items-center">
@@ -639,7 +639,7 @@ export default function Tasks() {
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-bg-card border border-border-dark rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-up">
-            <div className="sticky top-0 bg-bg-card border-b border-border-dark px-6 py-4 flex items-center justify-between z-10">
+            <div className="sticky top-0 bg-bg-card border-b border-border-dark px-4 sm:px-6 py-4 flex items-center justify-between z-10">
               <h3 className="text-lg font-bold text-text-primary flex items-center">
                 {editingTask ? <Edit3 className="h-5 w-5 mr-2 text-brand-primary" /> : <Plus className="h-5 w-5 mr-2 text-brand-primary" />}
                 {editingTask ? 'Edit Task' : 'Create New Task'}
@@ -652,7 +652,7 @@ export default function Tasks() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
               {/* Task Title */}
               <div>
                 <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">

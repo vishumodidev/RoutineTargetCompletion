@@ -188,29 +188,29 @@ export default function MainLayout() {
           </div>
 
           {/* Gamification Stats Header */}
-          <div className="flex items-center space-x-4 md:space-x-6">
+          <div className="flex items-center space-x-2 sm:space-x-4 md:space-x-6">
             {/* Streak Counter */}
-            <div className="flex items-center bg-orange-500/10 border border-orange-500/25 px-3 py-1 rounded-full text-orange-400">
-              <Zap className="h-4.5 w-4.5 fill-orange-400 text-orange-400 mr-1.5 animate-bounce" />
-              <span className="text-xs font-extrabold tracking-wide uppercase">
+            <div className="flex items-center bg-orange-500/10 border border-orange-500/25 px-2.5 py-1 sm:px-3 rounded-full text-orange-400 shrink-0">
+              <Zap className="h-4 w-4 sm:h-4.5 sm:w-4.5 fill-orange-400 text-orange-400 mr-1 sm:mr-1.5 animate-bounce" />
+              <span className="text-[11px] sm:text-xs font-extrabold tracking-wide uppercase whitespace-nowrap">
                 {user.streak || 0} Day Streak
               </span>
             </div>
 
             {/* Level & XP Progress Info */}
-            <div className="flex flex-col items-end">
-              <div className="flex items-center space-x-2">
+            <div className="flex flex-col items-end shrink-0">
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
                 <span className="text-[10px] text-text-secondary font-medium hidden xs:inline">
                   {user.xp} / {nextLevelXP || 'Max'} XP
                 </span>
-                <span className="flex items-center bg-brand-primary/20 border border-brand-primary/30 px-2 py-0.5 rounded text-[11px] font-black text-brand-primary">
+                <span className="flex items-center bg-brand-primary/20 border border-brand-primary/30 px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-black text-brand-primary whitespace-nowrap">
                   LVL {level}
                 </span>
               </div>
               
               {/* Progress Bar Container */}
               {nextLevelXP && (
-                <div className="w-24 xs:w-32 bg-bg-input h-1.5 rounded-full mt-1.5 overflow-hidden border border-border-dark">
+                <div className="w-20 xs:w-32 bg-bg-input h-1.5 rounded-full mt-1.5 overflow-hidden border border-border-dark">
                   <div 
                     className="bg-gradient-to-r from-brand-primary to-purple-400 h-full rounded-full transition-all duration-500" 
                     style={{ width: `${percent}%` }}

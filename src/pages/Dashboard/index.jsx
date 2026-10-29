@@ -418,7 +418,7 @@ Tell me:
             {/* Target Progression Indicators */}
             <div className="space-y-2">
               <span className="text-[10px] font-black text-text-secondary uppercase">Milestone Tracks</span>
-              <div className="grid grid-cols-4 gap-1.5 text-center">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                 {[
                   { label: 'Milestone 1', value: '₹1.5L', desc: 'Consistently', active: true },
                   { label: 'Milestone 2', value: '₹2.0L', desc: 'Next Phase', active: false },
@@ -469,18 +469,18 @@ Tell me:
           </div>
 
           {/* Math Board Grid */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
             <div className="p-3 bg-bg-dark/40 border border-border-dark rounded-lg text-center">
               <span className="text-[9px] font-bold text-text-secondary uppercase">Received</span>
-              <p className="text-lg font-black text-emerald-400 mt-1">₹{opportunityStats.received.toLocaleString('en-IN')}</p>
+              <p className="text-base sm:text-lg font-black text-emerald-400 mt-1 truncate">₹{opportunityStats.received.toLocaleString('en-IN')}</p>
             </div>
             <div className="p-3 bg-bg-dark/40 border border-border-dark rounded-lg text-center">
               <span className="text-[9px] font-bold text-text-secondary uppercase">Confirmed</span>
-              <p className="text-lg font-black text-indigo-400 mt-1">₹{opportunityStats.confirmed.toLocaleString('en-IN')}</p>
+              <p className="text-base sm:text-lg font-black text-indigo-400 mt-1 truncate">₹{opportunityStats.confirmed.toLocaleString('en-IN')}</p>
             </div>
             <div className="p-3 bg-bg-dark/40 border border-border-dark rounded-lg text-center">
               <span className="text-[9px] font-bold text-text-secondary uppercase">Remaining Gap</span>
-              <p className="text-lg font-black text-rose-400 mt-1">₹{opportunityStats.gap.toLocaleString('en-IN')}</p>
+              <p className="text-base sm:text-lg font-black text-rose-400 mt-1 truncate">₹{opportunityStats.gap.toLocaleString('en-IN')}</p>
             </div>
           </div>
 
@@ -804,18 +804,18 @@ Tell me:
 
           {/* Summary Indicators */}
           <div className="space-y-2">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
               <div className="p-2.5 bg-bg-dark/45 border border-border-dark rounded-lg text-center">
                 <span className="text-[8px] font-bold text-text-secondary uppercase">Confirmed Realized</span>
-                <p className="text-sm font-black text-emerald-400 mt-0.5">₹{opportunityStats.confirmed.toLocaleString('en-IN')}</p>
+                <p className="text-sm font-black text-emerald-400 mt-0.5 truncate">₹{opportunityStats.confirmed.toLocaleString('en-IN')}</p>
               </div>
               <div className="p-2.5 bg-bg-dark/45 border border-border-dark rounded-lg text-center">
                 <span className="text-[8px] font-bold text-text-secondary uppercase">Open Pipeline</span>
-                <p className="text-sm font-black text-text-secondary mt-0.5">₹{opportunityStats.pipeline.toLocaleString('en-IN')}</p>
+                <p className="text-sm font-black text-text-secondary mt-0.5 truncate">₹{opportunityStats.pipeline.toLocaleString('en-IN')}</p>
               </div>
               <div className="p-2.5 bg-bg-dark/45 border border-border-dark rounded-lg text-center">
                 <span className="text-[8px] font-bold text-text-secondary uppercase">Weighted Forecast</span>
-                <p className="text-sm font-black text-indigo-400 mt-0.5">₹{opportunityStats.weightedPipeline.toLocaleString('en-IN')}</p>
+                <p className="text-sm font-black text-indigo-400 mt-0.5 truncate">₹{opportunityStats.weightedPipeline.toLocaleString('en-IN')}</p>
               </div>
             </div>
 
@@ -835,7 +835,7 @@ Tell me:
           {/* Add Opportunity Inline Form */}
           {showAddOpp && (
             <form onSubmit={handleAddOppSubmit} className="p-4 bg-bg-dark/60 border border-border-dark rounded-xl space-y-3.5">
-              <div className="grid grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-3xs font-bold text-text-secondary uppercase mb-1">Lead / Client Name</label>
                   <input
@@ -859,7 +859,7 @@ Tell me:
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-3xs font-bold text-text-secondary uppercase mb-1">Source</label>
                   <select
@@ -1069,7 +1069,7 @@ Tell me:
             </div>
 
             {/* MI Today Actions */}
-            <div className="grid grid-cols-4 gap-2 text-center text-3xs font-black">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-3xs font-black">
               {[
                 { key: 'todayProspects', label: 'Prospects' },
                 { key: 'todayFollowUps', label: 'Follow-ups' },

@@ -1230,10 +1230,10 @@ export default function AIAssistant() {
       </div>
 
       {/* Top Workflow Navigation Tabs (Phase 6: Includes AI Assistant Chat) */}
-      <div className="flex border-b border-border-dark gap-2 overflow-x-auto pb-1">
+      <div className="flex border-b border-border-dark gap-2 overflow-x-auto pb-1 scrollbar-none">
         <button
           onClick={() => setActiveTab('big5')}
-          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 ${
+          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 shrink-0 whitespace-nowrap ${
             activeTab === 'big5'
               ? 'border-brand-primary text-brand-primary bg-brand-primary/10'
               : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-card'
@@ -1245,7 +1245,7 @@ export default function AIAssistant() {
 
         <button
           onClick={() => setActiveTab('morning')}
-          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 ${
+          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 shrink-0 whitespace-nowrap ${
             activeTab === 'morning'
               ? 'border-amber-400 text-amber-400 bg-amber-400/10'
               : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-card'
@@ -1257,7 +1257,7 @@ export default function AIAssistant() {
 
         <button
           onClick={() => setActiveTab('evening')}
-          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 ${
+          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 shrink-0 whitespace-nowrap ${
             activeTab === 'evening'
               ? 'border-indigo-400 text-indigo-400 bg-indigo-400/10'
               : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-card'
@@ -1269,7 +1269,7 @@ export default function AIAssistant() {
 
         <button
           onClick={() => setActiveTab('weekly')}
-          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 ${
+          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 shrink-0 whitespace-nowrap ${
             activeTab === 'weekly'
               ? 'border-cyan-400 text-cyan-400 bg-cyan-400/10'
               : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-card'
@@ -1281,7 +1281,7 @@ export default function AIAssistant() {
 
         <button
           onClick={() => setActiveTab('chat')}
-          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 ${
+          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 shrink-0 whitespace-nowrap ${
             activeTab === 'chat'
               ? 'border-purple-400 text-purple-400 bg-purple-400/10'
               : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-card'
@@ -1293,7 +1293,7 @@ export default function AIAssistant() {
 
         <button
           onClick={() => setActiveTab('automations')}
-          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 ${
+          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 shrink-0 whitespace-nowrap ${
             activeTab === 'automations'
               ? 'border-emerald-400 text-emerald-400 bg-emerald-400/10'
               : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-card'
@@ -1305,7 +1305,7 @@ export default function AIAssistant() {
 
         <button
           onClick={() => setActiveTab('biz_opportunities')}
-          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 ${
+          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 shrink-0 whitespace-nowrap ${
             activeTab === 'biz_opportunities'
               ? 'border-amber-500 text-amber-500 bg-amber-500/10'
               : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-card'
@@ -1317,7 +1317,7 @@ export default function AIAssistant() {
 
         <button
           onClick={() => setActiveTab('drafting')}
-          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 ${
+          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 shrink-0 whitespace-nowrap ${
             activeTab === 'drafting'
               ? 'border-blue-400 text-blue-400 bg-blue-400/10'
               : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-card'
@@ -1495,14 +1495,14 @@ export default function AIAssistant() {
           </div>
 
           {/* Day Type Selector */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
             {Object.entries(DAY_TYPES).map(([key, config]) => {
               const isSelected = dayType === key;
               return (
                 <button
                   key={key}
                   onClick={() => handleDayTypeChange(key)}
-                  className={`px-3 py-2.5 rounded-lg border text-left transition-all ${
+                  className={`px-3 py-2.5 rounded-lg border text-left transition-all last:col-span-2 sm:last:col-span-1 ${
                     isSelected
                       ? 'bg-brand-primary/20 border-brand-primary text-text-primary shadow-sm'
                       : 'bg-bg-input border-border-dark text-text-secondary hover:text-text-primary hover:border-brand-primary/30'
@@ -3448,7 +3448,7 @@ export default function AIAssistant() {
       {/* ========================================================================= */}
       {showBreakdownModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
-          <div className="bg-bg-card border border-border-dark rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+          <div className="bg-bg-card border border-border-dark rounded-2xl max-w-xl w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-border-dark pb-3">
               <div className="flex items-center space-x-2.5">
                 <Wand2 className="h-5 w-5 text-brand-primary" />
@@ -3555,7 +3555,7 @@ export default function AIAssistant() {
       {/* ========================================================================= */}
       {showGoogleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
-          <div className="bg-bg-card border border-border-dark rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl max-h-[85vh] flex flex-col">
+          <div className="bg-bg-card border border-border-dark rounded-2xl max-w-2xl w-full p-4 sm:p-6 space-y-5 shadow-2xl max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-border-dark pb-3">
               <div className="flex items-center space-x-2.5">
                 <Calendar className="h-5 w-5 text-brand-primary" />
@@ -3786,7 +3786,7 @@ export default function AIAssistant() {
       {/* ========================================================================= */}
       {explainingTask && explainingTask.scoreBreakdown && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-          <div className="bg-bg-card border border-border-dark rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+          <div className="bg-bg-card border border-border-dark rounded-2xl max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-2xl">
             <div className="flex items-start justify-between">
               <div>
                 <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">
@@ -3847,7 +3847,7 @@ export default function AIAssistant() {
       {/* ========================================================================= */}
       {deferringTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-          <div className="bg-bg-card border border-border-dark rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+          <div className="bg-bg-card border border-border-dark rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-4 shadow-2xl">
             <h3 className="text-sm font-bold text-text-primary">
               Defer Task: {deferringTask.title}
             </h3>
@@ -3888,7 +3888,7 @@ export default function AIAssistant() {
       {/* ========================================================================= */}
       {showHistoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-          <div className="bg-bg-card border border-border-dark rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl max-h-[80vh] flex flex-col">
+          <div className="bg-bg-card border border-border-dark rounded-2xl max-w-2xl w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-text-primary flex items-center">
                 <History className="h-4 w-4 mr-2 text-cyan-400" />
