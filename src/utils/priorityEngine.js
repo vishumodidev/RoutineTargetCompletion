@@ -40,82 +40,109 @@ export function clamp(val, min = 0, max = 100) {
 /**
  * 1. Calculate Deadline Urgency (0 - 100)
  */
-export function calculateDeadlineUrgency(task, referenceDate = new Date()) {
-  if (!task) return { score: 20, reason: 'No task provided' };
+export function calculateDeadlineUrgency(task, referenceDate = new Date(), opportunities = []) {
+  if (Array.isArray(referenceDate)) {
+    opportunities = referenceDate;
+    referenceDate = new Date();
+  }
+
+  if (!task) return { score: 20, reason: 'No task provided', isInheritedDeadline: false };
   
   // Completed or cancelled tasks have zero urgency
   if (task.status === 'Completed' || task.status === 'Cancelled') {
-    return { score: 0, reason: `Task is ${task.status}` };
+    return { score: 0, reason: `Task is ${task.status}`, isInheritedDeadline: false };
   }
 
   const deadlineType = task.deadlineType || 'Flexible';
 
-  if (!task.dueDate) {
-    if (deadlineType === 'Hard') return { score: 40, reason: 'Hard deadline without due date' };
-    if (deadlineType === 'Soft') return { score: 30, reason: 'Soft deadline without due date' };
-    return { score: 20, reason: 'No due date set (Flexible)' };
-  }
+  let effectiveDueDate = task.dueDate;
+  let isInheritedDeadline = false;
+  let oppName = '';
 
-  // Parse reference date (start of day)
-  const ref = new Date(referenceDate);
-  ref.setHours(0, 0, 0, 0);
-
-  // Parse task due date (start of day)
-  const due = new Date(task.dueDate);
-  if (isNaN(due.getTime())) {
-    return { score: 20, reason: 'Invalid due date format' };
-  }
-  due.setHours(0, 0, 0, 0);
-
-  const diffMs = due.getTime() - ref.getTime();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 0) {
-    const overdueDays = Math.abs(diffDays);
-    if (deadlineType === 'Hard') {
-      return { score: 100, reason: `Overdue by ${overdueDays} day(s) (Hard deadline)` };
+  if (!effectiveDueDate) {
+    const oppId = task.linkedOpportunityId || task.opportunityId;
+    if (oppId && Array.isArray(opportunities) && opportunities.length > 0) {
+      const opp = opportunities.find(o => (o.id === oppId || o.opportunityId === oppId));
+      if (opp && opp.expectedCloseDate) {
+        effectiveDueDate = opp.expectedCloseDate;
+        isInheritedDeadline = true;
+        oppName = opp.title || opp.clientName || 'deal';
+      }
     }
-    if (deadlineType === 'Soft') {
-      return { score: 95, reason: `Overdue by ${overdueDays} day(s) (Soft deadline)` };
+  }
+
+  const getBaseResult = () => {
+    if (!effectiveDueDate) {
+      if (deadlineType === 'Hard') return { score: 40, reason: 'Hard deadline without due date' };
+      if (deadlineType === 'Soft') return { score: 30, reason: 'Soft deadline without due date' };
+      return { score: 20, reason: 'No due date set (Flexible)' };
     }
-    return { score: 85, reason: `Overdue by ${overdueDays} day(s) (Flexible)` };
-  }
 
-  if (diffDays === 0) {
-    if (deadlineType === 'Hard') return { score: 95, reason: 'Due today (Hard deadline)' };
-    if (deadlineType === 'Soft') return { score: 90, reason: 'Due today (Soft deadline)' };
-    return { score: 80, reason: 'Due today (Flexible)' };
-  }
+    // Parse reference date (start of day)
+    const ref = new Date(referenceDate);
+    ref.setHours(0, 0, 0, 0);
 
-  if (diffDays === 1) {
-    if (deadlineType === 'Hard') return { score: 85, reason: 'Due tomorrow (Hard deadline)' };
-    if (deadlineType === 'Soft') return { score: 75, reason: 'Due tomorrow (Soft deadline)' };
-    return { score: 65, reason: 'Due tomorrow (Flexible)' };
-  }
+    // Parse task due date (start of day)
+    const due = new Date(effectiveDueDate);
+    if (isNaN(due.getTime())) {
+      return { score: 20, reason: 'Invalid due date format' };
+    }
+    due.setHours(0, 0, 0, 0);
 
-  if (diffDays <= 3) {
-    if (deadlineType === 'Hard') return { score: 70, reason: `Due in ${diffDays} days (Hard deadline)` };
-    if (deadlineType === 'Soft') return { score: 60, reason: `Due in ${diffDays} days (Soft deadline)` };
-    return { score: 50, reason: `Due in ${diffDays} days (Flexible)` };
-  }
+    const diffMs = due.getTime() - ref.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const deadlineSuffix = isInheritedDeadline ? ` (Inherited from deal "${oppName}" close date)` : '';
 
-  if (diffDays <= 7) {
-    if (deadlineType === 'Hard') return { score: 55, reason: `Due in ${diffDays} days (within 1 week)` };
-    if (deadlineType === 'Soft') return { score: 45, reason: `Due in ${diffDays} days (within 1 week)` };
-    return { score: 35, reason: `Due in ${diffDays} days (within 1 week)` };
-  }
+    if (diffDays < 0) {
+      const overdueDays = Math.abs(diffDays);
+      if (deadlineType === 'Hard') {
+        return { score: 100, reason: `Overdue by ${overdueDays} day(s) (Hard deadline)${deadlineSuffix}` };
+      }
+      if (deadlineType === 'Soft') {
+        return { score: 95, reason: `Overdue by ${overdueDays} day(s) (Soft deadline)${deadlineSuffix}` };
+      }
+      return { score: 85, reason: `Overdue by ${overdueDays} day(s) (Flexible)${deadlineSuffix}` };
+    }
 
-  if (diffDays <= 14) {
-    if (deadlineType === 'Hard') return { score: 40, reason: `Due in ${diffDays} days (within 2 weeks)` };
-    if (deadlineType === 'Soft') return { score: 30, reason: `Due in ${diffDays} days (within 2 weeks)` };
-    return { score: 20, reason: `Due in ${diffDays} days (within 2 weeks)` };
-  }
+    if (diffDays === 0) {
+      if (deadlineType === 'Hard') return { score: 95, reason: `Due today (Hard deadline)${deadlineSuffix}` };
+      if (deadlineType === 'Soft') return { score: 90, reason: `Due today (Soft deadline)${deadlineSuffix}` };
+      return { score: 80, reason: `Due today (Flexible)${deadlineSuffix}` };
+    }
 
-  if (diffDays <= 30) {
-    return { score: 20, reason: `Due in ${diffDays} days (within 1 month)` };
-  }
+    if (diffDays === 1) {
+      if (deadlineType === 'Hard') return { score: 85, reason: `Due tomorrow (Hard deadline)${deadlineSuffix}` };
+      if (deadlineType === 'Soft') return { score: 75, reason: `Due tomorrow (Soft deadline)${deadlineSuffix}` };
+      return { score: 65, reason: `Due tomorrow (Flexible)${deadlineSuffix}` };
+    }
 
-  return { score: 10, reason: `Due in ${diffDays} days (over 1 month away)` };
+    if (diffDays <= 3) {
+      if (deadlineType === 'Hard') return { score: 70, reason: `Due in ${diffDays} days (Hard deadline)${deadlineSuffix}` };
+      if (deadlineType === 'Soft') return { score: 60, reason: `Due in ${diffDays} days (Soft deadline)${deadlineSuffix}` };
+      return { score: 50, reason: `Due in ${diffDays} days (Flexible)${deadlineSuffix}` };
+    }
+
+    if (diffDays <= 7) {
+      if (deadlineType === 'Hard') return { score: 55, reason: `Due in ${diffDays} days (within 1 week)${deadlineSuffix}` };
+      if (deadlineType === 'Soft') return { score: 45, reason: `Due in ${diffDays} days (within 1 week)${deadlineSuffix}` };
+      return { score: 35, reason: `Due in ${diffDays} days (within 1 week)${deadlineSuffix}` };
+    }
+
+    if (diffDays <= 14) {
+      if (deadlineType === 'Hard') return { score: 40, reason: `Due in ${diffDays} days (within 2 weeks)${deadlineSuffix}` };
+      if (deadlineType === 'Soft') return { score: 30, reason: `Due in ${diffDays} days (within 2 weeks)${deadlineSuffix}` };
+      return { score: 20, reason: `Due in ${diffDays} days (within 2 weeks)${deadlineSuffix}` };
+    }
+
+    if (diffDays <= 30) {
+      return { score: 20, reason: `Due in ${diffDays} days (within 1 month)${deadlineSuffix}` };
+    }
+
+    return { score: 10, reason: `Due in ${diffDays} days (over 1 month away)${deadlineSuffix}` };
+  };
+
+  const base = getBaseResult();
+  return { ...base, isInheritedDeadline };
 }
 
 /**
@@ -170,8 +197,61 @@ export function calculateGoalAlignment(task, goals = []) {
 /**
  * 3. Calculate Income or Business Impact (0 - 100)
  */
-export function calculateIncomeImpact(task) {
+export function calculateIncomeImpact(task, opportunities = []) {
   if (!task) return { score: 10, reason: 'No task provided' };
+
+  // 1. Check if linked to an active Opportunity
+  const oppId = task.linkedOpportunityId || task.opportunityId;
+  if (oppId && Array.isArray(opportunities) && opportunities.length > 0) {
+    const opp = opportunities.find(o => (o.id === oppId || o.opportunityId === oppId));
+    if (opp) {
+      const val = Number(opp.value) || 0;
+      const stageProbs = {
+        'New Leads': 10,
+        'Qualified Leads': 30,
+        'Meetings': 50,
+        'Proposals': 70,
+        'Negotiations': 80,
+        'Confirmed': 100,
+        'Lost': 0
+      };
+      const prob = (opp.probability !== undefined && opp.probability !== null && !isNaN(Number(opp.probability)))
+        ? Number(opp.probability)
+        : (stageProbs[opp.stage] !== undefined ? stageProbs[opp.stage] : 50);
+      const weightedVal = Math.round(val * (prob / 100));
+
+      if (opp.stage === 'Confirmed' || opp.stage === 'Closed-Won') {
+        return {
+          score: 100,
+          reason: `Linked confirmed deal: "${opp.title || opp.clientName}" (₹${val.toLocaleString('en-IN')})`
+        };
+      }
+      if (weightedVal >= 80000 || val >= 80000) {
+        return {
+          score: 95,
+          reason: `High-value pipeline deal: "${opp.title || opp.clientName}" (₹${val.toLocaleString('en-IN')}, ${opp.stage})`
+        };
+      }
+      if (weightedVal >= 35000 || val >= 35000) {
+        return {
+          score: 80,
+          reason: `Significant pipeline deal: "${opp.title || opp.clientName}" (₹${val.toLocaleString('en-IN')}, ${opp.stage})`
+        };
+      }
+      if (weightedVal >= 15000 || val >= 15000) {
+        return {
+          score: 65,
+          reason: `Active opportunity follow-up: "${opp.title || opp.clientName}" (₹${val.toLocaleString('en-IN')})`
+        };
+      }
+      if (val > 0) {
+        return {
+          score: 50,
+          reason: `Early-stage opportunity: "${opp.title || opp.clientName}" (₹${val.toLocaleString('en-IN')})`
+        };
+      }
+    }
+  }
 
   const impact = task.incomeImpact;
 
@@ -309,7 +389,12 @@ export function calculateReadiness(task) {
  * @param {Date} referenceDate Evaluation date (defaults to today)
  * @returns {Object} Priority calculation result with score, band, breakdown, and summary
  */
-export function calculatePriorityScore(task, allTasks = [], goals = [], referenceDate = new Date()) {
+export function calculatePriorityScore(task, allTasks = [], goals = [], referenceDate = new Date(), opportunities = []) {
+  if (Array.isArray(referenceDate)) {
+    opportunities = referenceDate;
+    referenceDate = new Date();
+  }
+
   if (!task) {
     return {
       score: 0,
@@ -319,9 +404,9 @@ export function calculatePriorityScore(task, allTasks = [], goals = [], referenc
     };
   }
 
-  const urgency = calculateDeadlineUrgency(task, referenceDate);
+  const urgency = calculateDeadlineUrgency(task, referenceDate, opportunities);
   const goalAlignment = calculateGoalAlignment(task, goals);
-  const incomeImpact = calculateIncomeImpact(task);
+  const incomeImpact = calculateIncomeImpact(task, opportunities);
   const dependency = calculateDependency(task, allTasks);
   const readiness = calculateReadiness(task);
 

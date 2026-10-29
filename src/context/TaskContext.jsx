@@ -2,6 +2,7 @@
 import { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import { AuthContext } from './AuthContext';
 import { InvestmentContext } from './InvestmentContext';
+import { DashboardContext } from './DashboardContext';
 import { taskService } from '../services/taskService';
 import { calculatePriorityScore } from '../utils/priorityEngine';
 import toast from 'react-hot-toast';
@@ -11,7 +12,9 @@ export const TaskContext = createContext(null);
 export function TaskProvider({ children }) {
   const { user } = useContext(AuthContext);
   const investment = useContext(InvestmentContext);
+  const dashboard = useContext(DashboardContext);
   const goals = investment?.goals || [];
+  const opportunities = dashboard?.opportunities || [];
 
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -101,7 +104,7 @@ export function TaskProvider({ children }) {
   // Enrich tasks with deterministic priority score calculation
   const enrichedTasks = useMemo(() => {
     return tasks.map(task => {
-      const priorityInfo = calculatePriorityScore(task, tasks, goals);
+      const priorityInfo = calculatePriorityScore(task, tasks, goals, opportunities);
       return {
         ...task,
         priorityScore: priorityInfo.score,
@@ -111,7 +114,7 @@ export function TaskProvider({ children }) {
         scoreSummary: priorityInfo.summary
       };
     });
-  }, [tasks, goals]);
+  }, [tasks, goals, opportunities]);
 
   // Filtered and sorted tasks
   const filteredTasks = useMemo(() => {

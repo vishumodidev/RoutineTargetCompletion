@@ -12,6 +12,7 @@
  */
 
 import { calculatePriorityScore } from './priorityEngine.js';
+import { calculatePipelineForecast } from './forecastEngine.js';
 
 export const DEFERRAL_REASONS = [
   'Insufficient time',
@@ -75,15 +76,30 @@ export function getWeekDateRange(weekKey = getIsoWeekKey()) {
 /**
  * Aggregate weekly review metrics based purely on verified stored application data
  */
-export function aggregateWeeklyMetrics({
-  tasks = [],
-  dailyPlans = [],
-  goals = [],
-  opportunities = [],
-  startDate,
-  endDate,
-  todayDateStr = new Date().toISOString().split('T')[0]
-}) {
+export function aggregateWeeklyMetrics(options = {}) {
+  let opts = options;
+  if (Array.isArray(options)) {
+    // Called positionally: (tasks, dailyPlans, reviews/goals, goals/opportunities, startDate, endDate, opportunities)
+    const args = Array.from(arguments);
+    opts = {
+      tasks: args[0] || [],
+      dailyPlans: args[1] || [],
+      goals: Array.isArray(args[3]) ? args[3] : (Array.isArray(args[2]) ? args[2] : []),
+      startDate: typeof args[4] === 'string' ? args[4] : (typeof args[3] === 'string' ? args[3] : undefined),
+      endDate: typeof args[5] === 'string' ? args[5] : (typeof args[4] === 'string' ? args[4] : undefined),
+      opportunities: args[6] || args[4] || []
+    };
+  }
+
+  const {
+    tasks = [],
+    dailyPlans = [],
+    goals = [],
+    opportunities = [],
+    startDate,
+    endDate,
+    todayDateStr = new Date().toISOString().split('T')[0]
+  } = opts || {};
   // 1. Filter daily plans in this date window
   const weekPlans = (dailyPlans || []).filter(p => p && p.planDate).filter(p => {
     const pDate = p.planDate.split('T')[0];
@@ -176,11 +192,10 @@ export function aggregateWeeklyMetrics({
     }
   });
 
-  // 7. Revenue Generating Outcomes
+  // 7. Revenue Generating Outcomes & Pipeline Forecasts
   const highRevenueCompleted = completedPlannedTasks.filter(t => t.incomeImpact === 'High' || t.category === 'MI BUSINESS' || t.category === 'MONEY');
-  const confirmedOppRevenue = (opportunities || [])
-    .filter(o => o.stage === 'Confirmed')
-    .reduce((sum, o) => sum + (Number(o.value) || 0), 0);
+  const pipelineForecast = calculatePipelineForecast(opportunities, todayDateStr);
+  const confirmedOppRevenue = pipelineForecast.actualRevenue;
 
   // 8. Blockers Encountered
   const currentBlockers = tasks.filter(t => t.status === 'Blocked');
@@ -192,7 +207,7 @@ export function aggregateWeeklyMetrics({
   // 10. Suggested Next Week Priorities (Top 5 backlog tasks via deterministic scoring)
   const activeBacklog = tasks.filter(t => t.status !== 'Completed' && t.status !== 'Cancelled' && t.status !== 'Blocked');
   const scoredBacklog = activeBacklog.map(t => {
-    const prio = calculatePriorityScore(t, tasks, goals, new Date(todayDateStr));
+    const prio = calculatePriorityScore(t, tasks, goals, new Date(todayDateStr), opportunities);
     return {
       ...t,
       priorityScore: prio.score,
@@ -222,6 +237,7 @@ export function aggregateWeeklyMetrics({
     categoryWorkload,
     highRevenueCompleted,
     confirmedOppRevenue,
+    pipelineForecast,
     currentBlockers: currentBlockers.slice(0, 5),
     impactedGoals,
     suggestedNextWeekPriorities

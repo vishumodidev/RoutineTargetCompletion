@@ -55,9 +55,11 @@ var SHEETS = {
   MONTHLY_BUDGETS: { name: "MonthlyBudgets", headers: ["BudgetID", "UserID", "MonthYear", "SalaryIncome", "TrainingFreelanceIncome", "OtherIncome", "Rent", "Groceries", "ParentsSupport", "Utilities", "Transport", "TermInsuranceMonthly", "HealthInsuranceMonthly", "Healthcare", "OtherExpenses", "ActualInvestments", "EmergencySavings", "HouseSavings", "DaughterSavings", "Notes"] },
   FINANCIAL_GOALS: { name: "FinancialGoals", headers: ["GoalID", "UserID", "Name", "Category", "TargetAmount", "DownPaymentTarget", "RegistrationCosts", "CurrentBalance", "MonthlyTarget", "StartDate", "Deadline", "Priority", "Status", "Notes"] },
   TRANSACTIONS: { name: "ContributionTransactions", headers: ["TransactionID", "UserID", "Date", "Category", "EntityName", "Amount", "Type", "PaymentMode", "Notes"] },
-  TASKS: { name: "Tasks", headers: ["TaskID", "UserID", "Title", "Description", "Category", "ProjectArea", "LinkedGoalID", "Priority", "Status", "EstimatedDuration", "ActualDuration", "StartDate", "DueDate", "DeadlineType", "Dependencies", "IncomeImpact", "Importance", "Urgency", "Readiness", "NextAction", "Recurrence", "Source", "ExternalID", "CreatedAt", "UpdatedAt", "CompletedAt"] },
+  TASKS: { name: "Tasks", headers: ["TaskID", "UserID", "Title", "Description", "Category", "ProjectArea", "LinkedGoalID", "LinkedOpportunityID", "Priority", "Status", "EstimatedDuration", "ActualDuration", "StartDate", "DueDate", "DeadlineType", "Dependencies", "IncomeImpact", "Importance", "Urgency", "Readiness", "NextAction", "Recurrence", "Source", "ExternalID", "CreatedAt", "UpdatedAt", "CompletedAt"] },
   DAILY_PLANS: { name: "DailyPlans", headers: ["PlanID", "UserID", "PlanDate", "DayType", "AvailableMinutes", "PlannedMinutes", "SelectedTaskIDs", "TaskOrder", "AcceptanceStatuses", "DeferredTasksJSON", "SelectionRationale", "CreatedAt", "UpdatedAt"] },
-  REVIEWS: { name: "Reviews", headers: ["ReviewID", "UserID", "ReviewType", "PeriodKey", "LinkedPlanID", "MetricsJSON", "ReflectionText", "DeferralsJSON", "NextStepsJSON", "CreatedAt", "UpdatedAt"] }
+  REVIEWS: { name: "Reviews", headers: ["ReviewID", "UserID", "ReviewType", "PeriodKey", "LinkedPlanID", "MetricsJSON", "ReflectionText", "DeferralsJSON", "NextStepsJSON", "CreatedAt", "UpdatedAt"] },
+  AUTOMATION_RUNS: { name: "AutomationRuns", headers: ["RunID", "UserID", "AutomationID", "WorkflowType", "TriggerType", "Status", "IdempotencyKey", "DraftOutputJSON", "PendingActionsJSON", "ExecutedActionsJSON", "ErrorMessage", "StartedAt", "CompletedAt"] },
+  OPPORTUNITIES: { name: "Opportunities", headers: ["OpportunityID", "UserID", "Title", "ContactName", "Source", "Stage", "Value", "Probability", "ExpectedCloseDate", "LinkedGoalID", "Status", "Notes", "CreatedAt", "UpdatedAt"] }
 };
 
 function getUsersSheet() { return getOrCreateSheet(SHEETS.USERS.name, SHEETS.USERS.headers); }
@@ -73,6 +75,8 @@ function getTransactionsSheet() { return getOrCreateSheet(SHEETS.TRANSACTIONS.na
 function getTasksSheet() { return getOrCreateSheet(SHEETS.TASKS.name, SHEETS.TASKS.headers); }
 function getDailyPlansSheet() { return getOrCreateSheet(SHEETS.DAILY_PLANS.name, SHEETS.DAILY_PLANS.headers); }
 function getReviewsSheet() { return getOrCreateSheet(SHEETS.REVIEWS.name, SHEETS.REVIEWS.headers); }
+function getAutomationRunsSheet() { return getOrCreateSheet(SHEETS.AUTOMATION_RUNS.name, SHEETS.AUTOMATION_RUNS.headers); }
+function getOpportunitiesSheet() { return getOrCreateSheet(SHEETS.OPPORTUNITIES.name, SHEETS.OPPORTUNITIES.headers); }
 
 // ORM UTILITIES FOR SHEETS
 function getSheetRows(sheet) {
@@ -202,6 +206,15 @@ function doGet(e) {
       case "reviewsHistory":
         if (!userId) return error("Missing userId parameter");
         return getReviewsHistory(userId, params.type);
+      case "automationRuns":
+        if (!userId) return error("Missing userId parameter");
+        return getAutomationRuns(userId, params.limit);
+      case "pendingActions":
+        if (!userId) return error("Missing userId parameter");
+        return getPendingActions(userId);
+      case "opportunities":
+        if (!userId) return error("Missing userId parameter");
+        return getOpportunities(userId, params);
       default:
         return error("Invalid action: " + action);
     }
@@ -259,6 +272,17 @@ function doPost(e) {
         return saveReview(payload.userId, payload.review);
       case "aiGenerate":
         return handleAiGenerate(payload.userId, payload);
+      case "executeAutomation":
+        return executeAutomation(payload.userId, payload.workflowType, payload.triggerType, payload.payload);
+      case "approveAction":
+        return approveAction(payload.userId, payload.runId, payload.actionId, payload.actionType, payload.actionPayload);
+      case "rejectAction":
+        return rejectAction(payload.userId, payload.runId, payload.actionId);
+      case "saveOpportunity":
+      case "updateOpportunity":
+        return saveOpportunity(payload.userId, payload.oppData || payload.opportunity || payload.opp || payload);
+      case "deleteOpportunity":
+        return deleteOpportunity(payload.userId, payload.oppId || payload.opportunityId);
       default:
         return error("Invalid POST action: " + action);
     }
@@ -556,6 +580,29 @@ function getDashboard(userId) {
   var achievementsSheet = getAchievementsSheet();
   var userAchievements = getSheetRows(achievementsSheet).filter(function (a) { return a.UserID == userId; });
 
+  var oppsSheet = getOpportunitiesSheet();
+  var oppRows = getSheetRows(oppsSheet).filter(function (o) { return o.UserID == userId; });
+  var oppsList = oppRows.map(function (r) {
+    return {
+      id: r.OpportunityID,
+      opportunityId: r.OpportunityID,
+      userId: r.UserID,
+      title: r.Title || "",
+      clientName: r.Title || r.ContactName || "",
+      contactName: r.ContactName || "",
+      source: r.Source || "Other",
+      stage: r.Stage || "New Leads",
+      value: Number(r.Value) || 0,
+      probability: Number(r.Probability) !== undefined && r.Probability !== "" ? Number(r.Probability) : 10,
+      expectedCloseDate: getFormattedDate(r.ExpectedCloseDate),
+      linkedGoalId: r.LinkedGoalID || "",
+      status: r.Status || "Open",
+      notes: r.Notes || "",
+      createdAt: r.CreatedAt || "",
+      updatedAt: r.UpdatedAt || ""
+    };
+  });
+
   return response({
     success: true,
     user: {
@@ -569,7 +616,8 @@ function getDashboard(userId) {
       longestStreak: Number(targetUser.LongestStreak) || 0
     },
     todayQuests: habitsChecklist,
-    achievementsCount: userAchievements.length
+    achievementsCount: userAchievements.length,
+    opportunities: oppsList
   });
 }
 
@@ -1148,6 +1196,7 @@ function getTasks(userId, filterParams) {
       category: t.Category || "General",
       projectArea: t.ProjectArea || "",
       linkedGoalId: t.LinkedGoalID || "",
+      linkedOpportunityId: t.LinkedOpportunityID || "",
       priority: t.Priority || "Medium",
       status: t.Status || "Inbox",
       estimatedDuration: Number(t.EstimatedDuration) || 0,
@@ -1206,6 +1255,7 @@ function saveTask(userId, taskData) {
     Category: taskData.category || (existing ? existing.Category : "General"),
     ProjectArea: taskData.projectArea !== undefined ? taskData.projectArea : (existing ? existing.ProjectArea : ""),
     LinkedGoalID: taskData.linkedGoalId !== undefined ? taskData.linkedGoalId : (existing ? existing.LinkedGoalID : ""),
+    LinkedOpportunityID: taskData.linkedOpportunityId !== undefined ? taskData.linkedOpportunityId : (existing ? existing.LinkedOpportunityID : ""),
     Priority: taskData.priority || (existing ? existing.Priority : "Medium"),
     Status: status,
     EstimatedDuration: taskData.estimatedDuration !== undefined ? Number(taskData.estimatedDuration) : (existing ? Number(existing.EstimatedDuration) : 0),
@@ -1243,6 +1293,7 @@ function saveTask(userId, taskData) {
       category: payload.Category,
       projectArea: payload.ProjectArea,
       linkedGoalId: payload.LinkedGoalID,
+      linkedOpportunityId: payload.LinkedOpportunityID || "",
       priority: payload.Priority,
       status: payload.Status,
       estimatedDuration: payload.EstimatedDuration,
@@ -1612,6 +1663,367 @@ function handleAiGenerate(userId, payload) {
     });
   }
 }
+
+// =========================================================================
+// 17. CONTROLLED AUTOMATION CONTROLLERS (PHASE 8)
+// =========================================================================
+
+var RESTRICTED_ACTIONS_SET = ["delete_task", "delete_review", "financial_transaction", "send_email", "modify_external_calendar", "delete_external_task", "execute_arbitrary_code"];
+
+function getAutomationRuns(userId, limit) {
+  if (!userId) return error("Missing userId parameter");
+  var sheet = getAutomationRunsSheet();
+  var rows = getSheetRows(sheet);
+  var maxLimit = Number(limit) || 20;
+
+  var userRuns = rows.filter(function (r) { return r.UserID == userId; });
+  userRuns.sort(function (a, b) {
+    var dateA = new Date(a.StartedAt || 0).getTime();
+    var dateB = new Date(b.StartedAt || 0).getTime();
+    return dateB - dateA;
+  });
+
+  var runs = userRuns.slice(0, maxLimit).map(function (r) {
+    return {
+      runId: r.RunID,
+      userId: r.UserID,
+      automationId: r.AutomationID,
+      workflowType: r.WorkflowType,
+      triggerType: r.TriggerType,
+      status: r.Status,
+      idempotencyKey: r.IdempotencyKey,
+      draftOutput: r.DraftOutputJSON ? JSON.parse(r.DraftOutputJSON) : {},
+      pendingActions: r.PendingActionsJSON ? JSON.parse(r.PendingActionsJSON) : [],
+      executedActions: r.ExecutedActionsJSON ? JSON.parse(r.ExecutedActionsJSON) : [],
+      errorMessage: r.ErrorMessage || "",
+      startedAt: r.StartedAt,
+      completedAt: r.CompletedAt
+    };
+  });
+
+  return response({ success: true, runs: runs });
+}
+
+function getPendingActions(userId) {
+  if (!userId) return error("Missing userId parameter");
+  var sheet = getAutomationRunsSheet();
+  var rows = getSheetRows(sheet);
+
+  var pendingList = [];
+  rows.filter(function (r) { return r.UserID == userId && (r.Status === "AWAITING_APPROVAL" || r.Status === "PENDING_APPROVAL"); })
+    .forEach(function (r) {
+      if (r.PendingActionsJSON) {
+        try {
+          var actions = JSON.parse(r.PendingActionsJSON);
+          if (Array.isArray(actions)) {
+            actions.forEach(function (act) {
+              pendingList.push({
+                runId: r.RunID,
+                workflowType: r.WorkflowType,
+                actionId: act.actionId,
+                actionType: act.actionType,
+                status: act.status || "PENDING_APPROVAL",
+                permissionCategory: act.permissionCategory || "USER_APPROVED_WRITE",
+                reason: act.reason,
+                proposedTask: act.proposedTask || act.actionPayload,
+                actionPayload: act.actionPayload || act.proposedTask,
+                createdAt: r.StartedAt
+              });
+            });
+          }
+        } catch (e) {}
+      }
+    });
+
+  return response({ success: true, pendingActions: pendingList });
+}
+
+function executeAutomation(userId, workflowType, triggerType, inputPayload) {
+  if (!userId || !workflowType) return error("Missing userId or workflowType parameter");
+
+  var sheet = getAutomationRunsSheet();
+  var rows = getSheetRows(sheet);
+  var now = new Date().toISOString();
+  var dateKey = now.split("T")[0];
+  var idempotencyKey = "auto_" + workflowType + "_" + userId + "_" + dateKey;
+
+  // Duplicate-execution protection
+  var recentRun = rows.find(function (r) {
+    return r.UserID == userId && r.IdempotencyKey === idempotencyKey && r.Status === "COMPLETED";
+  });
+  if (recentRun && triggerType === "APP_INIT") {
+    return response({
+      success: true,
+      isCached: true,
+      message: "Workflow already completed for today (" + dateKey + ").",
+      runId: recentRun.RunID
+    });
+  }
+
+  var runId = "run_" + dateKey + "_" + Math.random().toString(36).substr(2, 7);
+  var pendingActions = inputPayload && Array.isArray(inputPayload.pendingActions) ? inputPayload.pendingActions : [];
+  var draftOutput = inputPayload && inputPayload.draftOutput ? inputPayload.draftOutput : {};
+  var status = pendingActions.length > 0 ? "AWAITING_APPROVAL" : "COMPLETED";
+
+  var rowRecord = {
+    RunID: runId,
+    UserID: userId,
+    AutomationID: workflowType,
+    WorkflowType: workflowType,
+    TriggerType: triggerType || "MANUAL",
+    Status: status,
+    IdempotencyKey: idempotencyKey,
+    DraftOutputJSON: JSON.stringify(draftOutput),
+    PendingActionsJSON: JSON.stringify(pendingActions),
+    ExecutedActionsJSON: "[]",
+    ErrorMessage: "",
+    StartedAt: now,
+    CompletedAt: status === "COMPLETED" ? now : ""
+  };
+
+  insertRow(sheet, rowRecord, SHEETS.AUTOMATION_RUNS.headers);
+
+  return response({
+    success: true,
+    run: {
+      runId: runId,
+      status: status,
+      workflowType: workflowType,
+      idempotencyKey: idempotencyKey,
+      pendingCount: pendingActions.length,
+      startedAt: now
+    }
+  });
+}
+
+function approveAction(userId, runId, actionId, actionType, actionPayload) {
+  if (!userId || !runId || !actionId) return error("Missing required parameters for action approval");
+
+  // Policy validation
+  if (RESTRICTED_ACTIONS_SET.indexOf(actionType) !== -1) {
+    return error("Action '" + actionType + "' is categorically RESTRICTED by policy.");
+  }
+
+  var sheet = getAutomationRunsSheet();
+  var rows = getSheetRows(sheet);
+  var run = rows.find(function (r) { return r.RunID == runId; });
+
+  if (!run) return error("Automation run not found");
+  if (run.UserID != userId) return error("Unauthorized: cannot approve another user's action");
+
+  var pending = run.PendingActionsJSON ? JSON.parse(run.PendingActionsJSON) : [];
+  var executed = run.ExecutedActionsJSON ? JSON.parse(run.ExecutedActionsJSON) : [];
+  var targetAction = pending.find(function (a) { return a.actionId === actionId; });
+
+  if (!targetAction) return error("Pending action not found or already executed");
+
+  var executionResult = null;
+  // Execute approved action using existing authoritative CRUD
+  if (actionType === "create_task") {
+    var taskData = actionPayload || targetAction.proposedTask;
+    executionResult = saveTask(userId, taskData);
+  } else if (actionType === "save_daily_plan") {
+    executionResult = saveDailyPlan(userId, actionPayload);
+  } else if (actionType === "save_review") {
+    executionResult = saveReview(userId, actionPayload);
+  } else {
+    return error("Unsupported action type: " + actionType);
+  }
+
+  // Update Run state
+  var updatedPending = pending.filter(function (a) { return a.actionId !== actionId; });
+  var executedItem = {
+    actionId: actionId,
+    actionType: actionType,
+    executedAt: new Date().toISOString()
+  };
+  executed.push(executedItem);
+
+  var newStatus = updatedPending.length === 0 ? "COMPLETED" : "AWAITING_APPROVAL";
+  var now = new Date().toISOString();
+
+  updateRowByColumn(sheet, "RunID", runId, {
+    PendingActionsJSON: JSON.stringify(updatedPending),
+    ExecutedActionsJSON: JSON.stringify(executed),
+    Status: newStatus,
+    CompletedAt: newStatus === "COMPLETED" ? now : ""
+  });
+
+  return response({
+    success: true,
+    actionId: actionId,
+    status: "EXECUTED",
+    executionResult: executionResult
+  });
+}
+
+function rejectAction(userId, runId, actionId) {
+  if (!userId || !runId || !actionId) return error("Missing required parameters for action rejection");
+
+  var sheet = getAutomationRunsSheet();
+  var rows = getSheetRows(sheet);
+  var run = rows.find(function (r) { return r.RunID == runId; });
+
+  if (!run) return error("Automation run not found");
+  if (run.UserID != userId) return error("Unauthorized: cannot reject another user's action");
+
+  var pending = run.PendingActionsJSON ? JSON.parse(run.PendingActionsJSON) : [];
+  var updatedPending = pending.filter(function (a) { return a.actionId !== actionId; });
+  var newStatus = updatedPending.length === 0 ? "REJECTED" : "AWAITING_APPROVAL";
+
+  updateRowByColumn(sheet, "RunID", runId, {
+    PendingActionsJSON: JSON.stringify(updatedPending),
+    Status: newStatus
+  });
+
+  return response({ success: true, actionId: actionId, status: "REJECTED" });
+}
+
+// =========================================================================
+// OPPORTUNITIES CONTROLLERS (STEP 2)
+// =========================================================================
+
+function getOpportunities(userId, filters) {
+  if (!userId) return error("Missing userId parameter");
+  var sheet = getOpportunitiesSheet();
+  var rows = getSheetRows(sheet);
+  var opps = rows.filter(function (r) { return r.UserID == userId; });
+
+  if (filters && filters.stage) {
+    opps = opps.filter(function (r) { return r.Stage === filters.stage; });
+  }
+  if (filters && filters.status) {
+    opps = opps.filter(function (r) { return r.Status === filters.status; });
+  }
+
+  var list = opps.map(function (r) {
+    return {
+      id: r.OpportunityID,
+      opportunityId: r.OpportunityID,
+      userId: r.UserID,
+      title: r.Title || "",
+      clientName: r.Title || r.ContactName || "",
+      contactName: r.ContactName || "",
+      source: r.Source || "Other",
+      stage: r.Stage || "New Leads",
+      value: Number(r.Value) || 0,
+      probability: Number(r.Probability) !== undefined && r.Probability !== "" ? Number(r.Probability) : 10,
+      expectedCloseDate: getFormattedDate(r.ExpectedCloseDate),
+      linkedGoalId: r.LinkedGoalID || "",
+      status: r.Status || "Open",
+      notes: r.Notes || "",
+      createdAt: r.CreatedAt || "",
+      updatedAt: r.UpdatedAt || ""
+    };
+  });
+
+  return response({ success: true, opportunities: list });
+}
+
+function saveOpportunity(userId, oppData) {
+  if (!userId) return error("Missing userId parameter");
+  if (!oppData) return error("Missing opportunity data");
+
+  var title = oppData.title || oppData.clientName;
+  if (!title || String(title).trim() === "") {
+    return error("Opportunity title or clientName is required");
+  }
+
+  var sheet = getOpportunitiesSheet();
+  var rows = getSheetRows(sheet);
+  var oppId = oppData.id || oppData.opportunityId || ("opp_" + Math.random().toString(36).substr(2, 9));
+  var existing = rows.find(function (r) { return r.OpportunityID == oppId; });
+
+  if (existing && existing.UserID != userId) {
+    return error("Unauthorized: cannot modify another user's opportunity");
+  }
+
+  var stage = oppData.stage || (existing ? existing.Stage : "New Leads");
+  var defaultProbabilities = {
+    "New Leads": 10,
+    "Qualified Leads": 30,
+    "Meetings": 50,
+    "Proposals": 70,
+    "Negotiations": 80,
+    "Confirmed": 100,
+    "Lost": 0
+  };
+
+  var prob = oppData.probability !== undefined
+    ? Number(oppData.probability)
+    : (existing && existing.Probability !== undefined && existing.Probability !== "" ? Number(existing.Probability) : (defaultProbabilities[stage] !== undefined ? defaultProbabilities[stage] : 10));
+  if (isNaN(prob)) prob = 10;
+  prob = Math.max(0, Math.min(100, prob));
+
+  var val = oppData.value !== undefined ? Number(oppData.value) : (existing ? Number(existing.Value) || 0 : 0);
+  if (isNaN(val) || val < 0) {
+    return error("Opportunity value must be a non-negative number");
+  }
+
+  var now = new Date().toISOString();
+  var status = oppData.status || (existing ? existing.Status : (stage === "Confirmed" ? "Won" : (stage === "Lost" ? "Lost" : "Open")));
+
+  var payload = {
+    OpportunityID: oppId,
+    UserID: userId,
+    Title: String(title).trim(),
+    ContactName: oppData.contactName !== undefined ? oppData.contactName : (existing ? existing.ContactName : ""),
+    Source: oppData.source !== undefined ? oppData.source : (existing ? existing.Source : "Other"),
+    Stage: stage,
+    Value: val,
+    Probability: prob,
+    ExpectedCloseDate: oppData.expectedCloseDate !== undefined ? getFormattedDate(oppData.expectedCloseDate) : (existing ? getFormattedDate(existing.ExpectedCloseDate) : ""),
+    LinkedGoalID: oppData.linkedGoalId !== undefined ? oppData.linkedGoalId : (existing ? existing.LinkedGoalID : ""),
+    Status: status,
+    Notes: oppData.notes !== undefined ? oppData.notes : (existing ? existing.Notes : ""),
+    CreatedAt: existing ? (existing.CreatedAt || now) : now,
+    UpdatedAt: now
+  };
+
+  if (existing) {
+    updateRowByColumn(sheet, "OpportunityID", oppId, payload);
+  } else {
+    insertRow(sheet, payload, SHEETS.OPPORTUNITIES.headers);
+  }
+
+  return response({
+    success: true,
+    opportunity: {
+      id: oppId,
+      opportunityId: oppId,
+      userId: userId,
+      title: payload.Title,
+      clientName: payload.Title,
+      contactName: payload.ContactName,
+      source: payload.Source,
+      stage: payload.Stage,
+      value: payload.Value,
+      probability: payload.Probability,
+      expectedCloseDate: payload.ExpectedCloseDate,
+      linkedGoalId: payload.LinkedGoalID,
+      status: payload.Status,
+      notes: payload.Notes,
+      createdAt: payload.CreatedAt,
+      updatedAt: payload.UpdatedAt
+    }
+  });
+}
+
+function deleteOpportunity(userId, oppId) {
+  if (!userId || !oppId) return error("Missing userId or oppId");
+  var sheet = getOpportunitiesSheet();
+  var rows = getSheetRows(sheet);
+  var existing = rows.find(function (r) { return r.OpportunityID == oppId; });
+
+  if (!existing) return error("Opportunity not found");
+  if (existing.UserID != userId) {
+    return error("Unauthorized: cannot delete another user's opportunity");
+  }
+
+  sheet.deleteRow(existing._rowNum);
+  return response({ success: true, message: "Opportunity deleted successfully", oppId: oppId });
+}
+
 
 
 

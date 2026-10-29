@@ -175,6 +175,7 @@ Consolidates one-time tasks, recurring tasks, and milestone deliverables across 
 | **Category** | String | - | Life / Business domain | `AI Agent Dev` |
 | **ProjectArea** | String | - | Specific project or focus area | `AI CRM Agent` |
 | **LinkedGoalID** | String (UUID) | Foreign Key | Optional reference to `FinancialGoals.GoalID` or milestone | `goal_house` |
+| **LinkedOpportunityID** | String (UUID) | Foreign Key | Optional reference to `Opportunities.OpportunityID` | `opp_9k2m1a` |
 | **Priority** | String | - | Initial band (`Critical`, `High`, `Medium`, `Low`) | `High` |
 | **Status** | String | - | State (`Inbox`, `Planned`, `In Progress`, `Blocked`, `Completed`, `Deferred`, `Cancelled`) | `In Progress` |
 | **EstimatedDuration** | Number | - | Estimated minutes to complete | `60` |
@@ -239,6 +240,49 @@ Stores guided morning planning confirmations, evening reviews, reflections, stru
 
 ---
 
+## 14. Sheet: `AutomationRuns`
+Records deterministic automation workflow executions, proposal states, idempotency keys, and audit history (Phase 8).
+
+| Column Name | Data Type | Key Type | Description | Example Value |
+| :--- | :--- | :--- | :--- | :--- |
+| **RunID** | String (UUID) | Primary Key | Unique identifier for each automation run | `run_2026-10-29_x8k2m1p` |
+| **UserID** | String (UUID) | Foreign Key | User associated with the workflow (references `Users.UserID`) | `usr_vishu` |
+| **AutomationID** | String | - | Canonical identifier of the workflow definition | `auto_morning_plan` |
+| **WorkflowType** | String | - | Approved workflow type (`auto_morning_plan`, `auto_evening_review`, `auto_followup_suggestions`, `auto_weekly_review`) | `auto_followup_suggestions` |
+| **TriggerType** | String | - | How execution was initiated (`MANUAL`, `SCHEDULED`, `APP_INIT`) | `MANUAL` |
+| **Status** | String | - | Execution status (`COMPLETED`, `PENDING_APPROVAL`, `SKIPPED`, `FAILED`) | `PENDING_APPROVAL` |
+| **IdempotencyKey** | String | Unique Index | Deterministic deduplication key preventing duplicate executions | `auto_auto_morning_plan_usr_vishu_2026-10-29` |
+| **DraftOutputJSON** | String (JSON) | - | Serialized draft output payload (read-only proposals) | `{"recommendedTasks":[...]}` |
+| **PendingActionsJSON** | String (JSON) | - | Proposed persistent actions awaiting human approval | `[{"actionId":"act_1","actionType":"create_task",...}]` |
+| **ExecutedActionsJSON** | String (JSON) | - | Audit trail of approved and executed persistent writes | `[{"actionId":"act_1","executedAt":"2026-10-29T11:00:00Z"}]` |
+| **ErrorMessage** | String | - | Diagnostic message in case of execution failure | `""` |
+| **StartedAt** | ISO 8601 Timestamp | - | When workflow began execution | `2026-10-29T06:00:00.000Z` |
+| **CompletedAt** | ISO 8601 Timestamp | - | When workflow completed (empty while awaiting approval) | `2026-10-29T06:00:01.200Z` |
+
+---
+
+## 15. Sheet: `Opportunities`
+Manages client sales opportunities, consulting contracts, corporate training pipelines, deal stages, and probability-weighted forecasting.
+
+| Column Name | Data Type | Key Type | Description | Example Value |
+| :--- | :--- | :--- | :--- | :--- |
+| **OpportunityID** | String (UUID) | Primary Key | Unique deal identifier | `opp_9k2m1a` |
+| **UserID** | String (UUID) | Foreign Key | Owner of the opportunity (references `Users.UserID`) | `usr_vishu` |
+| **Title** | String | - | Deal or lead title / client name | `Corporate Agentic AI Workshop` |
+| **ContactName** | String | - | Primary client contact person | `Priya Sharma (HR Director)` |
+| **Source** | String | - | Lead source (`LinkedIn`, `Referral`, `Corporate HR/L&D`, `WhatsApp`, etc.) | `LinkedIn` |
+| **Stage** | String | - | Pipeline stage (`New Leads`, `Qualified Leads`, `Meetings`, `Proposals`, `Negotiations`, `Confirmed`, `Lost`) | `Proposals` |
+| **Value** | Number | - | Nominal total deal value in INR | `85000` |
+| **Probability** | Number | - | Win probability percentage [0, 100] | `70` |
+| **ExpectedCloseDate** | Date (YYYY-MM-DD) | - | Target decision or contract closure date | `2026-11-15` |
+| **LinkedGoalID** | String (UUID) | Foreign Key | Optional reference to `FinancialGoals.GoalID` | `goal_emergency` |
+| **Status** | String | - | High-level status (`Open`, `Won`, `Lost`) | `Open` |
+| **Notes** | String | - | Notes, context, next follow-up agenda | `Sent revised syllabus and quote` |
+| **CreatedAt** | String (ISO) | - | Creation timestamp | `2026-10-29T08:00:00.000Z` |
+| **UpdatedAt** | String (ISO) | - | Last modification timestamp | `2026-10-29T10:15:00.000Z` |
+
+---
+
 ## Relationships & Integrity Rules
 
 ```mermaid
@@ -254,19 +298,27 @@ erDiagram
     Users ||--o{ Tasks : "manages"
     Users ||--o{ DailyPlans : "generates"
     Users ||--o{ Reviews : "conducts"
+    Users ||--o{ AutomationRuns : "executes"
+    Users ||--o{ Opportunities : "tracks"
+    Opportunities ||--o{ Tasks : "spawns follow-up"
     DailyPlans ||--o{ Reviews : "summarized by"
     FinancialGoals ||--o{ Tasks : "links to"
     Habits ||--o{ HabitLogs : "logs"
 ```
 
-1. **Cascade Deletes**: If a user is deleted, their habits, logs, achievements, financial profiles, goals, tasks, daily plans, and reviews should be deleted.
+1. **Cascade Deletes**: If a user is deleted, their habits, logs, achievements, financial profiles, goals, tasks, daily plans, reviews, automation runs, and opportunities should be deleted.
 2. **Uniqueness Rules**:
    - `Users.Email` must be unique.
    - For `HabitLogs`, the combination of `(HabitID, UserID, Date)` must be unique.
    - For `MonthlyBudgets`, the combination of `(UserID, MonthYear)` must be unique.
    - For `Tasks`, `TaskID` must be unique.
+   - For `Opportunities`, `OpportunityID` must be unique.
    - For `DailyPlans`, the combination of `(UserID, PlanDate)` must be unique. Multiple saves on the same day perform an idempotent update.
    - For `Reviews`, the combination of `(UserID, ReviewType, PeriodKey)` must be unique. Resubmitting an evening or weekly review updates the existing row in place.
+   - For `AutomationRuns`, `IdempotencyKey` ensures that automatic triggers (`APP_INIT` or time-driven) do not produce duplicate executions or overwrite existing user decisions for the same period.
+   - For `DailyPlans`, the combination of `(UserID, PlanDate)` must be unique. Multiple saves on the same day perform an idempotent update.
+   - For `Reviews`, the combination of `(UserID, ReviewType, PeriodKey)` must be unique. Resubmitting an evening or weekly review updates the existing row in place.
+   - For `AutomationRuns`, `IdempotencyKey` ensures that automatic triggers (`APP_INIT` or time-driven) do not produce duplicate executions or overwrite existing user decisions for the same period.
 
 ---
 

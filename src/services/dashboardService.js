@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { mockDb } from '../utils/mockDb';
 import api from './api';
+import { opportunityService } from './opportunityService';
 
 const isSheetsEnabled = typeof import.meta !== 'undefined' && !!import.meta?.env?.VITE_API_URL;
 
@@ -141,33 +142,11 @@ export const dashboardService = {
   },
 
   updateOpportunity: async (userId, opp) => {
-    if (isFirebaseEnabled) {
-      return { success: true };
-    } else if (isSheetsEnabled) {
-      try {
-        const res = await api.post('', { action: 'updateOpportunity', userId, opp });
-        return res.data;
-      } catch (err) {
-        throw new Error(err.message || 'Failed to update opportunity');
-      }
-    } else {
-      return mockDb.updateOpportunity(userId, opp);
-    }
+    return opportunityService.saveOpportunity(userId, opp);
   },
 
   deleteOpportunity: async (userId, oppId) => {
-    if (isFirebaseEnabled) {
-      return { success: true };
-    } else if (isSheetsEnabled) {
-      try {
-        const res = await api.post('', { action: 'deleteOpportunity', userId, oppId });
-        return res.data;
-      } catch (err) {
-        throw new Error(err.message || 'Failed to delete opportunity');
-      }
-    } else {
-      return mockDb.deleteOpportunity(userId, oppId);
-    }
+    return opportunityService.deleteOpportunity(userId, oppId);
   },
 
   updateTimeAllocation: async (userId, date, category, hours) => {

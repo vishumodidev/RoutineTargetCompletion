@@ -1,13 +1,16 @@
-import { useContext, useEffect, useState, useMemo } from 'react';
+import { useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import { TaskContext } from '../../context/TaskContext';
 import { InvestmentContext } from '../../context/InvestmentContext';
+import { DashboardContext } from '../../context/DashboardContext';
 import { planService } from '../../services/planService';
 import { reviewService } from '../../services/reviewService';
 import { ROUTINE_TEMPLATES } from '../../services/routineService';
 import { generateDailyBigFive, DAY_TYPES } from '../../utils/dailyPlanner';
 import { aiService } from '../../services/aiService';
+import { mentorService } from '../../services/mentorService';
+import { PROPOSAL_TYPES } from '../../utils/mentorEngine';
 import {
   signInWithGoogle,
   signOutFromGoogle,
@@ -22,6 +25,12 @@ import {
   aggregateWeeklyMetrics,
   DEFERRAL_REASONS
 } from '../../utils/reviewAggregator';
+import { automationService } from '../../services/automationService';
+import {
+  WORKFLOW_DEFINITIONS,
+  WORKFLOW_TYPES,
+  PERMISSION_CATEGORIES
+} from '../../utils/automationEngine';
 import { 
   Sparkles, 
   Calendar, 
@@ -62,17 +71,27 @@ import {
   MessageSquare,
   Send,
   Wand2,
-  Lightbulb
+  Lightbulb,
+  Zap,
+  Play,
+  Power,
+  ShieldAlert,
+  Briefcase,
+  DollarSign,
+  Copy,
+  FileSignature
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AIAssistant() {
   const { user } = useContext(AuthContext);
-  const { tasks, toggleTaskComplete, updateTask, createTask } = useContext(TaskContext);
+  const { tasks, toggleTaskComplete, updateTask, createTask, fetchTasks } = useContext(TaskContext);
   const { goals } = useContext(InvestmentContext);
+  const dashboard = useContext(DashboardContext) || {};
+  const opportunities = dashboard.opportunities || [];
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Tab state: 'big5' | 'morning' | 'evening' | 'weekly' | 'chat'
+  // Tab state: 'big5' | 'morning' | 'evening' | 'weekly' | 'chat' | 'automations'
   const activeTab = searchParams.get('tab') || 'big5';
   const setActiveTab = (tab) => setSearchParams({ tab });
 
@@ -161,6 +180,48 @@ export default function AIAssistant() {
   ]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
+
+  // Phase 8 Controlled Automation State
+  const [automationsEnabled, setAutomationsEnabled] = useState(() => {
+    return localStorage.getItem('rtc_automations_enabled') !== 'false';
+  });
+  const [automationRuns, setAutomationRuns] = useState([]);
+  const [pendingActions, setPendingActions] = useState([]);
+  const [isAutomationsLoading, setIsAutomationsLoading] = useState(false);
+  const [runningWorkflowType, setRunningWorkflowType] = useState(null);
+  const [actionProcessingId, setActionProcessingId] = useState(null);
+
+  // Phase 10: Personal AI Business Mentor State
+  // 1. Daily Plan Proposal
+  const [mentorDailyPlan, setMentorDailyPlan] = useState(null);
+  const [isMentorPlanLoading, setIsMentorPlanLoading] = useState(false);
+
+  // 2. Business Opportunity Advice & Income Review
+  const [opportunityAdvice, setOpportunityAdvice] = useState(null);
+  const [isOppAdviceLoading, setIsOppAdviceLoading] = useState(false);
+  const [incomeReview, setIncomeReview] = useState(null);
+  const [isIncomeReviewLoading, setIsIncomeReviewLoading] = useState(false);
+
+  // 3. Proposal & Comms Drafter
+  const [draftSelectedOppId, setDraftSelectedOppId] = useState('custom');
+  const [customProspect, setCustomProspect] = useState({
+    title: 'Enterprise AI Pilot',
+    contactName: 'Executive Sponsor',
+    stage: 'Proposal',
+    value: 75000,
+    notes: 'Needs enterprise team upskilling and AI workflow automation sprint'
+  });
+  const [selectedDraftType, setSelectedDraftType] = useState(PROPOSAL_TYPES.TRAINING_PROPOSAL);
+  const [draftGuidance, setDraftGuidance] = useState('');
+  const [currentDraft, setCurrentDraft] = useState(null);
+  const [editableDraftContent, setEditableDraftContent] = useState('');
+  const [isDraftLoading, setIsDraftLoading] = useState(false);
+
+  // 4. Evening & Weekly Mentor Advice
+  const [mentorEveningAdvice, setMentorEveningAdvice] = useState(null);
+  const [isEveningAdviceLoading, setIsEveningAdviceLoading] = useState(false);
+  const [mentorWeeklyAdvice, setMentorWeeklyAdvice] = useState(null);
+  const [isWeeklyAdviceLoading, setIsWeeklyAdviceLoading] = useState(false);
 
   // Subscribe to Google Auth changes
   useEffect(() => {
@@ -529,6 +590,318 @@ export default function AIAssistant() {
       ]);
     } finally {
       setIsChatLoading(false);
+    }
+  };
+
+  // Phase 8: Automation Data Loaders & Action Handlers
+  const loadAutomationsData = useCallback(async () => {
+    if (!user) return;
+    setIsAutomationsLoading(true);
+    try {
+      const [runs, pending] = await Promise.all([
+        automationService.getAutomationRuns(user.userId, 20),
+        automationService.getPendingActions(user.userId)
+      ]);
+      setAutomationRuns(runs || []);
+      setPendingActions(pending || []);
+    } catch (err) {
+      console.error('Failed to load automation data:', err);
+    } finally {
+      setIsAutomationsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (activeTab === 'automations') {
+      loadAutomationsData();
+    }
+  }, [activeTab, loadAutomationsData]);
+
+  const handleToggleAutomationsMaster = () => {
+    const nextState = !automationsEnabled;
+    setAutomationsEnabled(nextState);
+    localStorage.setItem('rtc_automations_enabled', String(nextState));
+    if (nextState) {
+      toast.success('Automations enabled');
+    } else {
+      toast('Automations paused by master switch', { icon: '⏸️' });
+    }
+  };
+
+  const handleRunWorkflow = async (workflowType) => {
+    if (!user) return;
+    if (!automationsEnabled) {
+      toast.error('Automations are paused. Toggle Master Switch to enable.');
+      return;
+    }
+    setRunningWorkflowType(workflowType);
+    try {
+      const payload = {
+        tasks,
+        goals,
+        calendarEvents,
+        dailyPlan: savedPlan,
+        planDate: selectedDate,
+        weekKey: selectedWeekKey
+      };
+      const res = await automationService.executeWorkflow(user.userId, workflowType, 'MANUAL', payload);
+      if (res && res.success) {
+        toast.success(`Workflow completed: ${res.run?.status || 'COMPLETED'}`);
+        await loadAutomationsData();
+      } else {
+        toast.error(res?.error || 'Automation execution failed');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to run workflow');
+    } finally {
+      setRunningWorkflowType(null);
+    }
+  };
+
+  const handleApproveAction = async (action) => {
+    if (!user) return;
+    setActionProcessingId(action.actionId);
+    try {
+      const res = await automationService.approveAction(
+        user.userId,
+        action.runId,
+        action.actionId,
+        action.actionType,
+        action.actionPayload
+      );
+      if (res && res.success) {
+        toast.success(`Approved! Created task: "${action.actionPayload?.title || 'Task'}"`);
+        if (fetchTasks) await fetchTasks();
+        await loadAutomationsData();
+      } else {
+        toast.error(res?.error || 'Failed to approve action');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error approving action');
+    } finally {
+      setActionProcessingId(null);
+    }
+  };
+
+  const handleRejectAction = async (action) => {
+    if (!user) return;
+    setActionProcessingId(action.actionId);
+    try {
+      const res = await automationService.rejectAction(
+        user.userId,
+        action.runId,
+        action.actionId
+      );
+      if (res && res.success) {
+        toast('Action proposal dismissed', { icon: '🗑️' });
+        await loadAutomationsData();
+      } else {
+        toast.error(res?.error || 'Failed to reject action');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error dismissing action');
+    } finally {
+      setActionProcessingId(null);
+    }
+  };
+
+  // =========================================================================
+  // Phase 10: Personal AI Business Mentor Handlers
+  // =========================================================================
+
+  const handleGetMentorDailyPlan = async () => {
+    setIsMentorPlanLoading(true);
+    try {
+      const res = await mentorService.getDailyPlanProposal(user?.userId, {
+        user,
+        tasks,
+        opportunities,
+        goals,
+        dailyPlan: savedPlan,
+        calendarEvents,
+        todayDateStr: selectedDate
+      });
+      if (res && res.success) {
+        setMentorDailyPlan(res);
+        toast.success('Generated AI Mentor Daily Plan recommendations!');
+      } else {
+        toast.error('Failed to generate mentor recommendations');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error generating mentor daily plan');
+    } finally {
+      setIsMentorPlanLoading(false);
+    }
+  };
+
+  const handleApplyMentorPlan = () => {
+    if (!mentorDailyPlan?.data?.recommendedActions?.length) return;
+    const actionIds = mentorDailyPlan.data.recommendedActions.map(a => a.taskId);
+    setRecommendedTasks(prev => {
+      const matched = [];
+      const unmatched = [];
+      actionIds.forEach(id => {
+        const found = prev.find(t => t.taskId === id) || tasks.find(t => (t.taskId || t.id) === id);
+        if (found) {
+          matched.push({ ...found, isAccepted: true });
+        }
+      });
+      prev.forEach(t => {
+        if (!actionIds.includes(t.taskId)) {
+          unmatched.push(t);
+        }
+      });
+      return [...matched, ...unmatched];
+    });
+    toast.success('Applied Mentor Focus to Daily Plan! You can review durations and save your plan.');
+  };
+
+  const handleLoadOpportunityAdvice = useCallback(async () => {
+    setIsOppAdviceLoading(true);
+    try {
+      const res = await mentorService.getOpportunityAdvice(user?.userId, {
+        user,
+        tasks,
+        opportunities,
+        goals,
+        dailyPlan: savedPlan,
+        calendarEvents,
+        todayDateStr: selectedDate
+      });
+      if (res && res.success) {
+        setOpportunityAdvice(res);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to analyze opportunities');
+    } finally {
+      setIsOppAdviceLoading(false);
+    }
+  }, [user, tasks, opportunities, goals, savedPlan, calendarEvents, selectedDate]);
+
+  const handleLoadIncomeReview = useCallback(async () => {
+    setIsIncomeReviewLoading(true);
+    try {
+      const res = await mentorService.getIncomeGoalReview(user?.userId, {
+        user,
+        tasks,
+        opportunities,
+        goals,
+        dailyPlan: savedPlan,
+        calendarEvents,
+        todayDateStr: selectedDate
+      });
+      if (res && res.success) {
+        setIncomeReview(res);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to review income progress');
+    } finally {
+      setIsIncomeReviewLoading(false);
+    }
+  }, [user, tasks, opportunities, goals, savedPlan, calendarEvents, selectedDate]);
+
+  useEffect(() => {
+    if (activeTab === 'biz_opportunities') {
+      if (!opportunityAdvice) handleLoadOpportunityAdvice();
+      if (!incomeReview) handleLoadIncomeReview();
+    }
+  }, [activeTab, opportunityAdvice, incomeReview, handleLoadOpportunityAdvice, handleLoadIncomeReview]);
+
+  const handleGenerateDraft = async () => {
+    let oppToUse;
+    if (draftSelectedOppId === 'custom' || !draftSelectedOppId) {
+      oppToUse = {
+        title: customProspect.title || 'Enterprise Client',
+        contactName: customProspect.contactName || 'Decision Maker',
+        stage: customProspect.stage || 'Proposal',
+        value: Number(customProspect.value) || 50000,
+        notes: (customProspect.notes ? customProspect.notes + '. ' : '') + (draftGuidance || '')
+      };
+    } else {
+      const found = opportunities.find(o => (o.id || o.opportunityId) === draftSelectedOppId);
+      oppToUse = {
+        ...(found || {}),
+        title: found?.title || found?.clientName || 'Commercial Prospect',
+        contactName: found?.contactName || 'Client Lead',
+        notes: (found?.notes ? found.notes + '. ' : '') + (draftGuidance || '')
+      };
+    }
+
+    setIsDraftLoading(true);
+    try {
+      const res = await mentorService.draftProposalOrComms(user?.userId, oppToUse, selectedDraftType);
+      if (res && res.success && res.data) {
+        setCurrentDraft(res);
+        setEditableDraftContent(res.data.draftContent || '');
+        toast.success(`Drafted ${selectedDraftType.replace(/_/g, ' ')}!`);
+      } else {
+        toast.error('Failed to generate proposal draft');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error generating draft');
+    } finally {
+      setIsDraftLoading(false);
+    }
+  };
+
+  const handleCopyDraftContent = () => {
+    if (!editableDraftContent) return;
+    navigator.clipboard.writeText(editableDraftContent);
+    toast.success('Proposal draft copied to clipboard!');
+  };
+
+  const handleLoadEveningMentorAdvice = async () => {
+    setIsEveningAdviceLoading(true);
+    try {
+      const res = await mentorService.getEveningReviewAdvice(user?.userId, {
+        user,
+        tasks,
+        opportunities,
+        goals,
+        dailyPlan: savedPlan,
+        calendarEvents,
+        todayDateStr: selectedDate
+      });
+      if (res && res.success) {
+        setMentorEveningAdvice(res);
+        toast.success('Loaded AI Mentor Evening Insights!');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load evening advice');
+    } finally {
+      setIsEveningAdviceLoading(false);
+    }
+  };
+
+  const handleLoadWeeklyMentorAdvice = async () => {
+    setIsWeeklyAdviceLoading(true);
+    try {
+      const res = await mentorService.getWeeklyReviewAdvice(user?.userId, {
+        user,
+        tasks,
+        opportunities,
+        goals,
+        dailyPlan: savedPlan,
+        calendarEvents,
+        todayDateStr: selectedDate
+      }, selectedWeekKey);
+      if (res && res.success) {
+        setMentorWeeklyAdvice(res);
+        toast.success('Loaded AI Mentor Weekly Strategic Synthesis!');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load weekly advice');
+    } finally {
+      setIsWeeklyAdviceLoading(false);
     }
   };
 
@@ -917,6 +1290,42 @@ export default function AIAssistant() {
           <Bot className="h-4 w-4 mr-2 text-purple-400" />
           AI Assistant Chat
         </button>
+
+        <button
+          onClick={() => setActiveTab('automations')}
+          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 ${
+            activeTab === 'automations'
+              ? 'border-emerald-400 text-emerald-400 bg-emerald-400/10'
+              : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-card'
+          }`}
+        >
+          <Zap className="h-4 w-4 mr-2 text-emerald-400" />
+          Controlled Automations
+        </button>
+
+        <button
+          onClick={() => setActiveTab('biz_opportunities')}
+          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 ${
+            activeTab === 'biz_opportunities'
+              ? 'border-amber-500 text-amber-500 bg-amber-500/10'
+              : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-card'
+          }`}
+        >
+          <Briefcase className="h-4 w-4 mr-2 text-amber-500" />
+          Business & Income Mentor
+        </button>
+
+        <button
+          onClick={() => setActiveTab('drafting')}
+          className={`flex items-center px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all border-b-2 ${
+            activeTab === 'drafting'
+              ? 'border-blue-400 text-blue-400 bg-blue-400/10'
+              : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-card'
+          }`}
+        >
+          <FileSignature className="h-4 w-4 mr-2 text-blue-400" />
+          Proposal & Comms Drafter
+        </button>
       </div>
 
       {/* ========================================================================= */}
@@ -1002,6 +1411,85 @@ export default function AIAssistant() {
                 {aiPlanningAdvice.recommendedDeferrals?.length > 0 && (
                   <p className="text-amber-300 text-[11px]">Suggestion: {aiPlanningAdvice.recommendedDeferrals.join(', ')}</p>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* Phase 10: Executive AI Mentor Daily Plan Assistant */}
+          <div className="bg-gradient-to-r from-brand-primary/10 via-bg-card to-purple-500/10 border border-brand-primary/30 rounded-xl p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-brand-primary" />
+                  <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                    Executive AI Mentor Daily Plan
+                  </h3>
+                  {mentorDailyPlan && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-brand-primary/10 text-brand-primary border-brand-primary/30">
+                      {mentorDailyPlan.isAi ? '⚡ Gemini 2.5 Flash' : '⚡ Deterministic Fallback'}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-text-secondary">
+                  Grounded in your priority scores, calendar availability, and commercial goals. Explains why each task matters.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGetMentorDailyPlan}
+                  disabled={isMentorPlanLoading}
+                  className="flex items-center px-3 py-1.5 bg-brand-primary/20 hover:bg-brand-primary/30 border border-brand-primary/40 text-brand-primary text-xs font-semibold rounded-lg transition-colors"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isMentorPlanLoading ? 'animate-spin' : ''}`} />
+                  {isMentorPlanLoading ? 'Consulting Mentor...' : mentorDailyPlan ? 'Refresh Mentor Plan' : 'Generate Mentor Plan'}
+                </button>
+                {mentorDailyPlan?.data?.recommendedActions?.length > 0 && (
+                  <button
+                    onClick={handleApplyMentorPlan}
+                    className="flex items-center px-3.5 py-1.5 bg-brand-primary hover:bg-brand-primary/90 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                    Apply Focus to Today
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {mentorDailyPlan?.data && (
+              <div className="space-y-3 pt-2 border-t border-border-dark/60">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="text-text-primary">
+                    <span className="font-bold text-brand-primary">Strategic Focus:</span>{' '}
+                    <span>{mentorDailyPlan.data.strategicFocusTheme || 'High-leverage priority execution'}</span>
+                  </div>
+                  <div className="text-[11px] text-text-secondary font-mono">
+                    Feasibility: <span className="text-emerald-400 font-semibold">{mentorDailyPlan.data.scheduleFeasibility || 'Realistic for available capacity'}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {mentorDailyPlan.data.recommendedActions.map((action, idx) => (
+                    <div key={action.taskId || idx} className="p-3 bg-bg-card border border-border-dark rounded-lg space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-bold text-xs text-text-primary line-clamp-1">
+                          {idx + 1}. {action.title}
+                        </span>
+                        <span className="font-mono text-[10px] text-brand-primary font-bold shrink-0">
+                          {action.estimatedDuration || 45}m
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-text-secondary line-clamp-2">
+                        💡 {action.importanceReason}
+                      </p>
+                      {action.linkedOpportunityOrGoal && (
+                        <p className="text-[10px] text-amber-300 font-mono truncate">
+                          🎯 {action.linkedOpportunityOrGoal}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -1591,6 +2079,73 @@ export default function AIAssistant() {
               </div>
             </div>
           </div>
+
+          {/* Phase 10: AI Mentor Evening Momentum Review */}
+          <div className="bg-bg-card border border-indigo-500/30 rounded-xl p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Sparkles className="h-4 w-4 text-indigo-400" />
+                <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
+                  AI Mentor Evening Review Synthesis
+                </h4>
+                {mentorEveningAdvice && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-indigo-500/10 text-indigo-400 border-indigo-500/30">
+                    {mentorEveningAdvice.isAi ? '⚡ Gemini 2.5 Flash' : '⚡ Deterministic Fallback'}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={handleLoadEveningMentorAdvice}
+                disabled={isEveningAdviceLoading}
+                className="text-xs font-semibold text-text-secondary hover:text-text-primary bg-bg-input px-3 py-1.5 rounded-lg border border-border-dark flex items-center"
+              >
+                <RefreshCw className={`h-3 w-3 mr-1.5 ${isEveningAdviceLoading ? 'animate-spin' : ''}`} />
+                {isEveningAdviceLoading ? 'Analyzing Day...' : mentorEveningAdvice ? 'Refresh Synthesis' : 'Consult Mentor'}
+              </button>
+            </div>
+
+            {mentorEveningAdvice?.data && (
+              <div className="space-y-3 p-4 bg-bg-input border border-border-dark rounded-xl text-xs">
+                <p className="text-text-primary leading-relaxed">
+                  📝 <strong className="text-indigo-300">Executive Summary:</strong> {mentorEveningAdvice.data.reflectionSummary}
+                </p>
+                {mentorEveningAdvice.data.celebrationNote && (
+                  <p className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-lg">
+                    🎉 {mentorEveningAdvice.data.celebrationNote}
+                  </p>
+                )}
+                {mentorEveningAdvice.data.blockerAnalysis && (
+                  <p className="text-amber-300 text-[11px] bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-lg">
+                    ⚠️ <strong>Friction / Blockers Observed:</strong> {mentorEveningAdvice.data.blockerAnalysis}
+                  </p>
+                )}
+                {mentorEveningAdvice.data.proposedTomorrowPriorities?.length > 0 && (
+                  <div className="space-y-1 pt-1">
+                    <span className="font-bold text-text-primary text-[11px] uppercase tracking-wider block">
+                      Mentor&apos;s Recommended Actions for Tomorrow:
+                    </span>
+                    {mentorEveningAdvice.data.proposedTomorrowPriorities.map((p, i) => (
+                      <p key={i} className="text-text-secondary text-xs flex items-start gap-1.5">
+                        <span className="text-indigo-400 font-bold">•</span>
+                        <span>{p}</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
+                <div className="pt-2 border-t border-border-dark/60">
+                  <button
+                    onClick={() => {
+                      setEveningReflection(prev => (prev ? prev + '\n\n' : '') + mentorEveningAdvice.data.reflectionSummary);
+                      toast.success('Appended mentor reflection to evening notes!');
+                    }}
+                    className="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
+                    + Append Mentor Summary to My Reflection Notes
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1869,6 +2424,93 @@ export default function AIAssistant() {
               </button>
             </div>
           </div>
+
+          {/* Phase 10: AI Mentor Weekly Strategic Synthesis */}
+          <div className="bg-bg-card border border-cyan-500/30 rounded-xl p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Sparkles className="h-4 w-4 text-cyan-400" />
+                <h4 className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
+                  AI Mentor Strategic Weekly Synthesis
+                </h4>
+                {mentorWeeklyAdvice && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-cyan-500/10 text-cyan-400 border-cyan-500/30">
+                    {mentorWeeklyAdvice.isAi ? '⚡ Gemini 2.5 Flash' : '⚡ Deterministic Fallback'}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={handleLoadWeeklyMentorAdvice}
+                disabled={isWeeklyAdviceLoading}
+                className="text-xs font-semibold text-text-secondary hover:text-text-primary bg-bg-input px-3 py-1.5 rounded-lg border border-border-dark flex items-center"
+              >
+                <RefreshCw className={`h-3 w-3 mr-1.5 ${isWeeklyAdviceLoading ? 'animate-spin' : ''}`} />
+                {isWeeklyAdviceLoading ? 'Synthesizing Week...' : mentorWeeklyAdvice ? 'Refresh Synthesis' : 'Consult Strategic Mentor'}
+              </button>
+            </div>
+
+            {mentorWeeklyAdvice?.data && (
+              <div className="space-y-3 p-4 bg-bg-input border border-border-dark rounded-xl text-xs">
+                <p className="text-text-primary leading-relaxed">
+                  📊 <strong className="text-cyan-300">Executive Summary:</strong> {mentorWeeklyAdvice.data.executiveSummary}
+                </p>
+
+                {mentorWeeklyAdvice.data.accomplishments?.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="font-bold text-emerald-400 text-[11px] uppercase tracking-wider block">
+                      Confirmed Key Achievements:
+                    </span>
+                    {mentorWeeklyAdvice.data.accomplishments.map((acc, i) => (
+                      <p key={i} className="text-text-secondary text-xs flex items-start gap-1.5">
+                        <span className="text-emerald-400 font-bold">✓</span>
+                        <span>{acc}</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {mentorWeeklyAdvice.data.obstaclesObserved?.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="font-bold text-amber-300 text-[11px] uppercase tracking-wider block">
+                      Friction & Blockers Encountered:
+                    </span>
+                    {mentorWeeklyAdvice.data.obstaclesObserved.map((obs, i) => (
+                      <p key={i} className="text-text-secondary text-xs flex items-start gap-1.5">
+                        <span className="text-amber-400 font-bold">⚠️</span>
+                        <span>{obs}</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {mentorWeeklyAdvice.data.strategicPrioritiesForNextWeek?.length > 0 && (
+                  <div className="space-y-1 pt-1">
+                    <span className="font-bold text-cyan-300 text-[11px] uppercase tracking-wider block">
+                      Proposed Top 3 Strategic Priorities for Next Week:
+                    </span>
+                    {mentorWeeklyAdvice.data.strategicPrioritiesForNextWeek.map((p, i) => (
+                      <p key={i} className="text-text-secondary text-xs flex items-start gap-1.5">
+                        <span className="text-cyan-400 font-bold">{i + 1}.</span>
+                        <span>{p}</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-2 border-t border-border-dark/60">
+                  <button
+                    onClick={() => {
+                      setWeeklyReflection(prev => (prev ? prev + '\n\n' : '') + mentorWeeklyAdvice.data.executiveSummary);
+                      toast.success('Appended mentor synthesis to weekly reflection!');
+                    }}
+                    className="text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-colors"
+                  >
+                    + Append Synthesis to Weekly Reflection
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1916,6 +2558,18 @@ export default function AIAssistant() {
               className="text-2xs bg-bg-card hover:bg-bg-input border border-border-dark text-text-secondary hover:text-text-primary px-3 py-1 rounded-full transition-colors"
             >
               ⏱️ What should I defer if schedule is full?
+            </button>
+            <button
+              onClick={() => handleSendChatMessage('How are my business opportunities tracking?')}
+              className="text-2xs bg-bg-card hover:bg-bg-input border border-border-dark text-text-secondary hover:text-text-primary px-3 py-1 rounded-full transition-colors"
+            >
+              💼 Review my pipeline & deals
+            </button>
+            <button
+              onClick={() => handleSendChatMessage('How is my monthly income tracking against my milestone?')}
+              className="text-2xs bg-bg-card hover:bg-bg-input border border-border-dark text-text-secondary hover:text-text-primary px-3 py-1 rounded-full transition-colors"
+            >
+              📈 Monthly income goal status
             </button>
           </div>
 
@@ -1983,6 +2637,809 @@ export default function AIAssistant() {
               <Send className="h-4 w-4" />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 6: CONTROLLED AUTOMATIONS & AGENT WORKFLOWS (PHASE 8)                 */}
+      {/* ========================================================================= */}
+      {activeTab === 'automations' && (
+        <div className="space-y-6">
+          {/* Master Control & Safety Guardrails Bar */}
+          <div className="p-5 bg-bg-card border border-border-dark rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-emerald-400" />
+                <h2 className="text-base font-bold text-text-primary">
+                  Controlled Automation Engine
+                </h2>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                  Zero Autonomous Writes Policy
+                </span>
+              </div>
+              <p className="text-xs text-text-secondary max-w-2xl">
+                Deterministic workflows for planning, review synthesis, and follow-up generation. All persistent actions require explicit human approval. Destructive operations (task deletion, emails, external edits) are permanently restricted.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleToggleAutomationsMaster}
+                className={`flex items-center px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${
+                  automationsEnabled
+                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25'
+                    : 'bg-rose-500/15 border-rose-500/40 text-rose-400 hover:bg-rose-500/25'
+                }`}
+                title="Emergency kill switch / pause all triggers"
+              >
+                <Power className="h-3.5 w-3.5 mr-1.5" />
+                {automationsEnabled ? 'Automations: Active' : 'Automations: Paused'}
+              </button>
+
+              <button
+                onClick={loadAutomationsData}
+                disabled={isAutomationsLoading}
+                className="flex items-center px-3 py-2 bg-bg-input hover:bg-bg-card border border-border-dark rounded-xl text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors disabled:opacity-40"
+                title="Refresh logs & pending approvals"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isAutomationsLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {/* Pending Approval Inbox */}
+          <div className="p-5 bg-bg-card border border-border-dark rounded-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border-dark pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-amber-400" />
+                <h3 className="text-sm font-bold text-text-primary">
+                  Human-in-the-Loop Approval Queue
+                </h3>
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
+                  pendingActions.length > 0
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                    : 'bg-bg-input text-text-secondary border border-border-dark'
+                }`}>
+                  {pendingActions.length} Pending
+                </span>
+              </div>
+              <span className="text-[11px] text-text-secondary hidden sm:inline">
+                Approved actions create tracked tasks in your backlog
+              </span>
+            </div>
+
+            {pendingActions.length === 0 ? (
+              <div className="py-8 text-center text-xs text-text-secondary space-y-2">
+                <CheckCircle2 className="h-8 w-8 text-emerald-400/60 mx-auto" />
+                <p className="font-semibold text-text-primary">Queue is clear</p>
+                <p>No automation actions awaiting review. Proposed tasks will appear here before any records are saved.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingActions.map((action) => {
+                  const isProcessing = actionProcessingId === action.actionId;
+                  const p = action.actionPayload || {};
+                  return (
+                    <div
+                      key={action.actionId}
+                      className="p-4 bg-bg-input border border-amber-500/30 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 transition-colors"
+                    >
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                            {action.actionType}
+                          </span>
+                          <span className="text-xs font-bold text-text-primary">
+                            {p.title || 'Untitled Action'}
+                          </span>
+                          {p.estimatedDuration && (
+                            <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.2 rounded border border-cyan-500/20">
+                              {p.estimatedDuration}m
+                            </span>
+                          )}
+                          {p.dueDate && (
+                            <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                              Due: {p.dueDate}
+                            </span>
+                          )}
+                        </div>
+
+                        {p.description && (
+                          <p className="text-xs text-text-secondary">
+                            {p.description}
+                          </p>
+                        )}
+                        {p.reason && (
+                          <p className="text-[11px] text-amber-300/90 font-mono">
+                            ⚡ Justification: {p.reason}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => handleApproveAction(action)}
+                          disabled={isProcessing}
+                          className="flex items-center px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-40 shadow-sm cursor-pointer"
+                        >
+                          <Check className="h-3.5 w-3.5 mr-1" />
+                          Approve & Create
+                        </button>
+                        <button
+                          onClick={() => handleRejectAction(action)}
+                          disabled={isProcessing}
+                          className="flex items-center px-3 py-1.5 bg-bg-card hover:bg-bg-input border border-border-dark text-text-secondary hover:text-text-primary rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 cursor-pointer"
+                        >
+                          <X className="h-3.5 w-3.5 mr-1" />
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 4 Approved Workflow Cards */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-text-primary">
+              Approved Automation Workflows
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.values(WORKFLOW_DEFINITIONS).map((def) => {
+                const isRunning = runningWorkflowType === def.id;
+                const latestRun = automationRuns.find(r => r.workflowType === def.id);
+
+                return (
+                  <div
+                    key={def.id}
+                    className="p-5 bg-bg-card border border-border-dark rounded-2xl flex flex-col justify-between space-y-4 hover:border-border-dark/80 transition-all"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-mono text-brand-primary uppercase tracking-wider block">
+                            {def.id}
+                          </span>
+                          <h4 className="text-sm font-bold text-text-primary">
+                            {def.name}
+                          </h4>
+                        </div>
+                        <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border uppercase shrink-0 ${
+                          def.permissionCategory === PERMISSION_CATEGORIES.USER_APPROVED_WRITE
+                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                            : 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                        }`}>
+                          {def.permissionCategory}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-text-secondary leading-relaxed">
+                        {def.description}
+                      </p>
+
+                      <div className="pt-2 text-[10px] font-mono text-text-secondary space-y-1">
+                        <div>Trigger: <span className="text-text-primary">{def.defaultTrigger}</span></div>
+                        {latestRun && (
+                          <div className="flex items-center gap-1.5">
+                            <span>Last run:</span>
+                            <span className={`px-1.5 py-0.2 rounded font-bold ${
+                              latestRun.status === 'COMPLETED'
+                                ? 'bg-emerald-500/10 text-emerald-400'
+                                : latestRun.status === 'SKIPPED'
+                                ? 'bg-blue-500/10 text-blue-400'
+                                : latestRun.status === 'PENDING_APPROVAL'
+                                ? 'bg-amber-500/10 text-amber-400'
+                                : 'bg-rose-500/10 text-rose-400'
+                            }`}>
+                              {latestRun.status}
+                            </span>
+                            <span>({new Date(latestRun.startedAt || latestRun.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleRunWorkflow(def.id)}
+                      disabled={isRunning || !automationsEnabled}
+                      className="w-full py-2 bg-bg-input hover:bg-bg-card border border-border-dark hover:border-brand-primary/40 rounded-xl text-xs font-bold text-text-primary flex items-center justify-center transition-all disabled:opacity-40 cursor-pointer"
+                    >
+                      {isRunning ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin text-brand-primary" />
+                          Executing Workflow...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-3.5 w-3.5 mr-1.5 text-brand-primary" />
+                          Run Workflow Now
+                        </>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Audit History Log */}
+          <div className="p-5 bg-bg-card border border-border-dark rounded-2xl space-y-3">
+            <div className="flex items-center justify-between border-b border-border-dark pb-3">
+              <div className="flex items-center gap-2">
+                <History className="h-4 w-4 text-text-secondary" />
+                <h3 className="text-sm font-bold text-text-primary">
+                  Automation Execution Audit Trail
+                </h3>
+              </div>
+              <span className="text-[10px] font-mono text-text-secondary">
+                Latest {automationRuns.length} runs recorded
+              </span>
+            </div>
+
+            {automationRuns.length === 0 ? (
+              <p className="text-xs text-center py-6 text-text-secondary">
+                No automation executions recorded yet. Run a workflow above to generate verifiable logs.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-border-dark text-[10px] uppercase font-mono text-text-secondary">
+                      <th className="py-2 px-3">Timestamp</th>
+                      <th className="py-2 px-3">Workflow</th>
+                      <th className="py-2 px-3">Trigger</th>
+                      <th className="py-2 px-3">Status</th>
+                      <th className="py-2 px-3">Idempotency Key</th>
+                      <th className="py-2 px-3">Result Summary</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-dark/60 font-mono text-[11px]">
+                    {automationRuns.map((run) => (
+                      <tr key={run.runId} className="hover:bg-bg-input/40 transition-colors">
+                        <td className="py-2.5 px-3 text-text-secondary whitespace-nowrap">
+                          {new Date(run.startedAt || run.createdAt).toLocaleString([], {
+                            month: 'numeric',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </td>
+                        <td className="py-2.5 px-3 text-text-primary font-bold">
+                          {run.workflowType}
+                        </td>
+                        <td className="py-2.5 px-3 text-text-secondary">
+                          {run.triggerType}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            run.status === 'COMPLETED'
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                              : run.status === 'SKIPPED'
+                              ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
+                              : run.status === 'PENDING_APPROVAL'
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                          }`}>
+                            {run.status}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-text-secondary text-[10px] truncate max-w-[150px]" title={run.idempotencyKey}>
+                          {run.idempotencyKey || '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-text-secondary font-sans text-xs">
+                          {run.errorMessage ? (
+                            <span className="text-rose-400">{run.errorMessage}</span>
+                          ) : run.executedActions?.length > 0 ? (
+                            <span className="text-emerald-400 font-semibold">{run.executedActions.length} action(s) executed</span>
+                          ) : run.pendingActions?.length > 0 ? (
+                            <span className="text-amber-400 font-semibold">{run.pendingActions.length} action(s) awaiting approval</span>
+                          ) : run.draftOutput?.statusMessage ? (
+                            <span>{run.draftOutput.statusMessage}</span>
+                          ) : (
+                            <span>{run.draftOutput?.summary || 'Draft completed'}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 7: BUSINESS OPPORTUNITIES & INCOME REVIEW (PHASE 10)                  */}
+      {/* ========================================================================= */}
+      {activeTab === 'biz_opportunities' && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-amber-500/10 via-bg-card to-brand-primary/10 border border-amber-500/30 rounded-xl p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <Briefcase className="h-6 w-6 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider">
+                      Personal AI Business Mentor & Income Review
+                    </h3>
+                    {incomeReview && (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/30">
+                        {incomeReview.isAi ? '⚡ Gemini 2.5 Flash' : '⚡ Deterministic Fallback'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-secondary">
+                    Diagnose opportunity pipeline health, monitor overdue follow-ups, and track progress toward monthly income targets with zero revenue conflation.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    handleLoadOpportunityAdvice();
+                    handleLoadIncomeReview();
+                  }}
+                  disabled={isOppAdviceLoading || isIncomeReviewLoading}
+                  className="flex items-center px-3.5 py-1.5 bg-bg-input hover:bg-bg-card border border-border-dark text-text-primary text-xs font-semibold rounded-lg transition-colors"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${(isOppAdviceLoading || isIncomeReviewLoading) ? 'animate-spin' : ''}`} />
+                  Refresh Analysis
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Revenue Health & Monthly Target Section (Strict Zero-Conflation Guarantee) */}
+          <div className="bg-bg-card border border-border-dark rounded-xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center">
+                  <DollarSign className="h-4 w-4 mr-1.5 text-emerald-400" />
+                  Monthly Income Targets vs. Actual & Forecasted Pipeline
+                </h4>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  Verified financial records. Open pipeline values and statistical forecasts are strictly separated from realized revenue.
+                </p>
+              </div>
+            </div>
+
+            {/* Zero Conflation Safety Notice */}
+            <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg flex items-center gap-2.5 text-xs text-emerald-300">
+              <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span>
+                <strong>Strict Integrity Rule:</strong> Open pipeline and probability-weighted figures are unconfirmed future projections. They are never added to confirmed revenue.
+              </span>
+            </div>
+
+            {/* Metric Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-4 bg-bg-input border border-border-dark rounded-xl space-y-1">
+                <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">
+                  Monthly Target
+                </span>
+                <p className="text-lg font-black text-text-primary font-mono">
+                  ₹{Number(incomeReview?.data?.targetIncome || user?.incomeMilestone || 150000).toLocaleString('en-IN')}
+                </p>
+                <span className="text-[10px] text-text-secondary">Milestone goal</span>
+              </div>
+
+              <div className="p-4 bg-bg-input border border-border-dark rounded-xl space-y-1">
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">
+                  Confirmed Revenue
+                </span>
+                <p className="text-lg font-black text-emerald-400 font-mono">
+                  ₹{Number(incomeReview?.data?.actualConfirmedIncome || 0).toLocaleString('en-IN')}
+                </p>
+                <span className="text-[10px] text-text-secondary">Realized & received</span>
+              </div>
+
+              <div className="p-4 bg-bg-input border border-border-dark rounded-xl space-y-1">
+                <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block">
+                  Open Pipeline
+                </span>
+                <p className="text-lg font-black text-cyan-400 font-mono">
+                  ₹{Number(incomeReview?.data?.openPipelineValue || 0).toLocaleString('en-IN')}
+                </p>
+                <span className="text-[10px] text-text-secondary">Unweighted gross sum</span>
+              </div>
+
+              <div className="p-4 bg-bg-input border border-border-dark rounded-xl space-y-1">
+                <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">
+                  Weighted Forecast
+                </span>
+                <p className="text-lg font-black text-purple-400 font-mono">
+                  ₹{Number(incomeReview?.data?.weightedPipelineForecast || 0).toLocaleString('en-IN')}
+                </p>
+                <span className="text-[10px] text-text-secondary">Probability-adjusted</span>
+              </div>
+            </div>
+
+            {/* Gap Analysis & Progress */}
+            {incomeReview?.data && (
+              <div className="p-4 bg-bg-input border border-border-dark rounded-xl space-y-3">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-text-primary">
+                    Gap to Target:{' '}
+                    <span className="font-mono text-amber-400">
+                      ₹{Number(incomeReview.data.gapToTarget || 0).toLocaleString('en-IN')}
+                    </span>
+                  </span>
+                  <span className="text-[11px] text-text-secondary">
+                    {incomeReview.data.actualConfirmedIncome >= incomeReview.data.targetIncome
+                      ? '🎉 Target Achieved!'
+                      : `${((incomeReview.data.actualConfirmedIncome / (incomeReview.data.targetIncome || 1)) * 100).toFixed(0)}% Confirmed`}
+                  </span>
+                </div>
+
+                <div className="w-full bg-bg-card rounded-full h-2.5 overflow-hidden border border-border-dark">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(100, Math.round(((incomeReview.data.actualConfirmedIncome || 0) / (incomeReview.data.targetIncome || 150000)) * 100))}%`
+                    }}
+                  />
+                </div>
+
+                {incomeReview.data.commercialHealthSummary && (
+                  <p className="text-xs text-text-secondary leading-relaxed pt-1">
+                    📊 <strong className="text-text-primary">Executive Summary:</strong> {incomeReview.data.commercialHealthSummary}
+                  </p>
+                )}
+
+                {incomeReview.data.topRevenueActions?.length > 0 && (
+                  <div className="pt-2 border-t border-border-dark space-y-1.5">
+                    <span className="text-[11px] font-bold text-text-primary uppercase tracking-wider block">
+                      Recommended Revenue Actions to Close Gap:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {incomeReview.data.topRevenueActions.map((action, i) => (
+                        <div key={i} className="text-xs text-text-secondary bg-bg-card p-2.5 rounded-lg border border-border-dark flex items-start gap-2">
+                          <span className="text-emerald-400 font-bold">✓</span>
+                          <span>{action}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Opportunity Pipeline Diagnostics Section */}
+          <div className="bg-bg-card border border-border-dark rounded-xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center">
+                  <Target className="h-4 w-4 mr-1.5 text-brand-primary" />
+                  Commercial Pipeline Diagnostics & Deal Velocity
+                </h4>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  Proactive warnings for overdue follow-ups, decayed deals, and missing next actions.
+                </p>
+              </div>
+            </div>
+
+            {opportunityAdvice?.data ? (
+              <div className="space-y-4">
+                {/* Overdue Follow-ups Alert */}
+                {opportunityAdvice.data.overdueFollowUps?.length > 0 && (
+                  <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2 text-rose-300 font-bold text-xs uppercase tracking-wider">
+                      <AlertTriangle className="h-4 w-4 text-rose-400" />
+                      Overdue Follow-ups Requiring Immediate Action ({opportunityAdvice.data.overdueFollowUps.length})
+                    </div>
+                    <div className="space-y-2">
+                      {opportunityAdvice.data.overdueFollowUps.map((opp, idx) => (
+                        <div key={opp.id || idx} className="p-3 bg-bg-card border border-rose-500/20 rounded-lg text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <span className="font-bold text-text-primary">{opp.title}</span>
+                            <span className="text-[10px] text-text-secondary ml-2 font-mono">Stage: {opp.stage}</span>
+                            <p className="text-[11px] text-rose-300 mt-0.5">{opp.reason}</p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setDraftSelectedOppId(opp.id || 'custom');
+                              setSelectedDraftType(PROPOSAL_TYPES.FOLLOWUP_EMAIL);
+                              setActiveTab('drafting');
+                            }}
+                            className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-lg text-xs font-semibold shrink-0"
+                          >
+                            Draft Follow-up Email →
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Priority Active Conversations */}
+                {opportunityAdvice.data.priorityConversations?.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-text-primary uppercase tracking-wider block">
+                      High-Leverage Priority Conversations
+                    </span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {opportunityAdvice.data.priorityConversations.map((conv, idx) => (
+                        <div key={conv.id || idx} className="p-3.5 bg-bg-input border border-border-dark rounded-xl space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="font-bold text-xs text-text-primary">{conv.title}</p>
+                              <span className="text-[10px] text-brand-primary font-mono font-bold">
+                                Value: ₹{Number(conv.value || 0).toLocaleString('en-IN')} • {conv.stage}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setDraftSelectedOppId(conv.id || 'custom');
+                                setActiveTab('drafting');
+                              }}
+                              className="text-[10px] text-text-secondary hover:text-text-primary px-2 py-0.5 bg-bg-card border border-border-dark rounded"
+                            >
+                              Draft Comms
+                            </button>
+                          </div>
+                          <p className="text-xs text-text-secondary bg-bg-card p-2 rounded-lg border border-border-dark/60">
+                            👉 <strong className="text-text-primary">Next Step:</strong> {conv.nextStep}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* High-Impact Discovery Questions */}
+                {opportunityAdvice.data.suggestedDiscoveryQuestions?.length > 0 && (
+                  <div className="p-4 bg-bg-input border border-border-dark rounded-xl space-y-2">
+                    <span className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center">
+                      <HelpCircle className="h-4 w-4 mr-1.5 text-amber-400" />
+                      Client Discovery Questions (Use in Next Conversation)
+                    </span>
+                    <div className="space-y-1.5">
+                      {opportunityAdvice.data.suggestedDiscoveryQuestions.map((q, idx) => (
+                        <div key={idx} className="text-xs text-text-secondary flex items-start gap-2 bg-bg-card p-2.5 rounded-lg border border-border-dark">
+                          <span className="text-amber-400 font-bold shrink-0">{idx + 1}.</span>
+                          <span>{q}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-center py-6 text-text-secondary">
+                {isOppAdviceLoading ? 'Analyzing opportunity pipeline health...' : 'No pipeline analysis loaded yet. Click "Refresh Analysis" above.'}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 8: PROPOSAL & COMMUNICATION DRAFTER (PHASE 10)                        */}
+      {/* ========================================================================= */}
+      {activeTab === 'drafting' && (
+        <div className="space-y-6">
+          {/* Header Banner with Safety Gate */}
+          <div className="bg-gradient-to-r from-blue-500/10 via-bg-card to-brand-primary/10 border border-blue-500/30 rounded-xl p-5">
+            <div className="flex items-start gap-3">
+              <FileSignature className="h-6 w-6 text-blue-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-blue-300 uppercase tracking-wider">
+                    Executive Proposal & Communication Drafter
+                  </h3>
+                  {currentDraft && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/30">
+                      {currentDraft.isAi ? '⚡ Gemini 2.5 Flash' : '⚡ Deterministic Template'}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-text-secondary">
+                  Generate professional, grounded proposals, follow-up messages, and meeting agendas. Editable, with stated assumptions and zero automatic sending.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Safety Gate Alert */}
+          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-3 text-xs text-amber-300">
+            <ShieldAlert className="h-5 w-5 text-amber-400 shrink-0" />
+            <div>
+              <strong>Strict Human-in-the-Loop Policy:</strong> Drafts are generated proposals only. The application never sends emails or communicates externally without your explicit review and delivery.
+            </div>
+          </div>
+
+          {/* Configuration Workspace */}
+          <div className="bg-bg-card border border-border-dark rounded-xl p-5 space-y-4">
+            <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+              1. Select Opportunity & Communication Type
+            </h4>
+
+            {/* Opportunity Selector */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-text-secondary">Target Opportunity:</label>
+                <select
+                  value={draftSelectedOppId}
+                  onChange={(e) => setDraftSelectedOppId(e.target.value)}
+                  className="w-full bg-bg-input border border-border-dark rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-brand-primary"
+                >
+                  <option value="custom">➕ Custom Prospect / Manual Entry</option>
+                  {opportunities.map(opp => (
+                    <option key={opp.id || opp.opportunityId} value={opp.id || opp.opportunityId}>
+                      {opp.title || opp.clientName || 'Opportunity'} (₹{Number(opp.value || 0).toLocaleString('en-IN')} - {opp.stage})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* If Custom Prospect, show inputs */}
+              {draftSelectedOppId === 'custom' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-text-secondary">Client / Deal Name:</label>
+                    <input
+                      type="text"
+                      value={customProspect.title}
+                      onChange={(e) => setCustomProspect(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="e.g. Acme Health Corp"
+                      className="w-full bg-bg-input border border-border-dark rounded-lg p-2 text-xs text-text-primary"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-text-secondary">Estimated Value (₹):</label>
+                    <input
+                      type="number"
+                      value={customProspect.value}
+                      onChange={(e) => setCustomProspect(prev => ({ ...prev, value: Number(e.target.value) }))}
+                      placeholder="e.g. 50000"
+                      className="w-full bg-bg-input border border-border-dark rounded-lg p-2 text-xs text-text-primary"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 5 Draft Types Buttons */}
+            <div className="space-y-1.5 pt-2">
+              <label className="text-xs font-semibold text-text-secondary">Select Draft Type (5 Approved Categories):</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                {[
+                  { id: PROPOSAL_TYPES.TRAINING_PROPOSAL, label: '🎓 Training Proposal', desc: 'Corporate / AI workshop' },
+                  { id: PROPOSAL_TYPES.SOFTWARE_PROPOSAL, label: '💻 Software Proposal', desc: 'MVP / Custom build' },
+                  { id: PROPOSAL_TYPES.FOLLOWUP_EMAIL, label: '✉️ Follow-up Email', desc: 'High-leverage outreach' },
+                  { id: PROPOSAL_TYPES.MEETING_AGENDA, label: '🗓️ Meeting Agenda', desc: 'Executive pitch plan' },
+                  { id: PROPOSAL_TYPES.DISCOVERY_QUESTIONNAIRE, label: '📋 Discovery Diagnostic', desc: 'Requirements questionnaire' }
+                ].map(type => (
+                  <button
+                    key={type.id}
+                    onClick={() => setSelectedDraftType(type.id)}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      selectedDraftType === type.id
+                        ? 'bg-blue-500/20 border-blue-500 text-text-primary shadow-sm'
+                        : 'bg-bg-input border-border-dark text-text-secondary hover:text-text-primary hover:border-blue-500/30'
+                    }`}
+                  >
+                    <p className="text-xs font-bold truncate">{type.label}</p>
+                    <p className="text-[10px] text-text-secondary mt-0.5">{type.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* User Guidance / Context Input */}
+            <div className="space-y-1.5 pt-2">
+              <label className="text-xs font-semibold text-text-secondary">
+                Optional Guidance or Special Instructions:
+              </label>
+              <input
+                type="text"
+                value={draftGuidance}
+                onChange={(e) => setDraftGuidance(e.target.value)}
+                placeholder="e.g. Highlight our 2-week turnaround and mention the pilot discount rate"
+                className="w-full bg-bg-input border border-border-dark rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="pt-2">
+              <button
+                onClick={handleGenerateDraft}
+                disabled={isDraftLoading}
+                className="w-full sm:w-auto px-6 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+              >
+                <Wand2 className={`h-4 w-4 ${isDraftLoading ? 'animate-spin' : ''}`} />
+                {isDraftLoading ? 'Generating Professional Draft...' : 'Generate Communication Draft'}
+              </button>
+            </div>
+          </div>
+
+          {/* Generated Draft Workspace */}
+          {editableDraftContent && (
+            <div className="bg-bg-card border border-border-dark rounded-xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-dark pb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-text-primary flex items-center gap-2">
+                    <span>{currentDraft?.data?.draftTitle || 'Communication Draft'}</span>
+                  </h4>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    Target Audience: <span className="text-brand-primary font-semibold">{currentDraft?.data?.targetAudience || 'Decision Maker'}</span>
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopyDraftContent}
+                    className="flex items-center px-4 py-2 bg-brand-primary hover:bg-brand-primary/90 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />
+                    Copy to Clipboard
+                  </button>
+                </div>
+              </div>
+
+              {/* Editable Text Area */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-[11px] text-text-secondary">
+                  <span>Editable Workspace (Make adjustments in place before sending):</span>
+                  <span>{editableDraftContent.length} characters</span>
+                </div>
+                <textarea
+                  rows={14}
+                  value={editableDraftContent}
+                  onChange={(e) => setEditableDraftContent(e.target.value)}
+                  className="w-full bg-bg-input border border-border-dark rounded-xl p-4 text-xs text-text-primary font-mono leading-relaxed focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {/* Assumptions & Missing Information Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                {/* Stated Assumptions */}
+                <div className="p-4 bg-bg-input border border-border-dark rounded-xl space-y-2">
+                  <span className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center">
+                    <Info className="h-3.5 w-3.5 mr-1.5 text-amber-400" />
+                    Stated Assumptions in Draft
+                  </span>
+                  <div className="space-y-1">
+                    {(currentDraft?.data?.statedAssumptions || [
+                      'Standard commercial terms apply',
+                      'Client has necessary administrative rights'
+                    ]).map((asm, idx) => (
+                      <p key={idx} className="text-xs text-text-secondary flex items-start gap-1.5">
+                        <span className="text-amber-400 font-bold">•</span>
+                        <span>{asm}</span>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Missing Information / Risks */}
+                <div className="p-4 bg-bg-input border border-border-dark rounded-xl space-y-2">
+                  <span className="text-xs font-bold text-rose-300 uppercase tracking-wider flex items-center">
+                    <AlertCircle className="h-3.5 w-3.5 mr-1.5 text-rose-400" />
+                    Missing Information / Verify with Client
+                  </span>
+                  <div className="space-y-1">
+                    {(currentDraft?.data?.missingInformation || [
+                      'Exact target start date to be confirmed',
+                      'Stakeholder approval workflow'
+                    ]).map((info, idx) => (
+                      <p key={idx} className="text-xs text-text-secondary flex items-start gap-1.5">
+                        <span className="text-rose-400 font-bold">•</span>
+                        <span>{info}</span>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

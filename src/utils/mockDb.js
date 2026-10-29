@@ -1,4 +1,10 @@
 import { getLevelDetails } from './index.js';
+import {
+  executeMorningPlanWorkflow,
+  executeEveningReviewWorkflow,
+  executeFollowupSuggestionsWorkflow,
+  executeWeeklyReviewWorkflow
+} from './automationEngine.js';
 
 // Initialize mock storage if empty
 export function initMockDb() {
@@ -117,11 +123,11 @@ export function initMockDb() {
   // Initialize opportunity pipeline
   if (!localStorage.getItem('mock_opportunities')) {
     const defaultOpportunities = [
-      { id: 'opp_1', clientName: 'MERN customization', source: 'WhatsApp', stage: 'Qualified Leads', value: 45000 },
-      { id: 'opp_2', clientName: 'Corporate GenAI Training', source: 'LinkedIn', stage: 'Negotiations', value: 120000 },
-      { id: 'opp_3', clientName: 'React Native enhancement', source: 'Previous Client', stage: 'Confirmed', value: 30000 },
-      { id: 'opp_4', clientName: 'College Seminar', source: 'College', stage: 'New Leads', value: 15000 },
-      { id: 'opp_5', clientName: 'Agentic AI consulting', source: 'Referral', stage: 'Proposals', value: 45000 }
+      { id: 'opp_1', opportunityId: 'opp_1', userId: 'usr_vishu', title: 'MERN customization', clientName: 'MERN customization', contactName: 'Client Alpha', source: 'WhatsApp', stage: 'Qualified Leads', value: 45000, probability: 30, expectedCloseDate: '2026-11-15', status: 'Open', notes: 'Initial scope agreed', createdAt: '2026-10-20T10:00:00.000Z', updatedAt: '2026-10-25T12:00:00.000Z' },
+      { id: 'opp_2', opportunityId: 'opp_2', userId: 'usr_vishu', title: 'Corporate GenAI Training', clientName: 'Corporate GenAI Training', contactName: 'TechCorp HR', source: 'LinkedIn', stage: 'Negotiations', value: 120000, probability: 80, expectedCloseDate: '2026-11-05', status: 'Open', notes: 'Pricing proposal under final review', createdAt: '2026-10-18T09:00:00.000Z', updatedAt: '2026-10-27T15:00:00.000Z' },
+      { id: 'opp_3', opportunityId: 'opp_3', userId: 'usr_vishu', title: 'React Native enhancement', clientName: 'React Native enhancement', contactName: 'MobileStudio', source: 'Previous Client', stage: 'Confirmed', value: 30000, probability: 100, expectedCloseDate: '2026-10-25', status: 'Won', notes: 'Contract confirmed and started', createdAt: '2026-10-15T11:00:00.000Z', updatedAt: '2026-10-25T16:00:00.000Z' },
+      { id: 'opp_4', opportunityId: 'opp_4', userId: 'usr_vishu', title: 'College Seminar', clientName: 'College Seminar', contactName: 'Dean of CS', source: 'College', stage: 'New Leads', value: 15000, probability: 10, expectedCloseDate: '2026-11-20', status: 'Open', notes: 'Introductory email sent', createdAt: '2026-10-26T14:00:00.000Z', updatedAt: '2026-10-26T14:00:00.000Z' },
+      { id: 'opp_5', opportunityId: 'opp_5', userId: 'usr_vishu', title: 'Agentic AI consulting', clientName: 'Agentic AI consulting', contactName: 'Startup Founder', source: 'Referral', stage: 'Proposals', value: 45000, probability: 70, expectedCloseDate: '2026-11-10', status: 'Open', notes: 'Architecture pitch submitted', createdAt: '2026-10-22T08:30:00.000Z', updatedAt: '2026-10-28T10:00:00.000Z' }
     ];
     localStorage.setItem('mock_opportunities', JSON.stringify(defaultOpportunities));
   }
@@ -398,6 +404,11 @@ export function initMockDb() {
       { id: 'tx_4', date: today, category: "Daughter's Fund", entityName: "Daughter's Future Allocation", amount: 5000, type: 'Savings', paymentMode: 'Bank Transfer', notes: "Monthly child education deposit" }
     ];
     localStorage.setItem('mock_contribution_transactions', JSON.stringify(defaultTx));
+  }
+
+  // Initialize Automation Runs
+  if (!localStorage.getItem('mock_automation_runs')) {
+    localStorage.setItem('mock_automation_runs', JSON.stringify([]));
   }
 }
 
@@ -809,26 +820,114 @@ export const mockDb = {
     return { success: false, error: 'Task not found' };
   },
 
-  updateOpportunity: (userId, opp) => {
+  getOpportunities: (userId, filters = {}) => {
+    if (!userId) throw new Error('Missing userId parameter');
+    const opps = getTable('mock_opportunities').filter(o => o.userId === userId || !o.userId);
+    let filtered = opps;
+    if (filters.stage) filtered = filtered.filter(o => o.stage === filters.stage);
+    if (filters.status) filtered = filtered.filter(o => o.status === filters.status);
+    return { success: true, opportunities: filtered };
+  },
+
+  saveOpportunity: (userId, oppData) => {
+    if (!userId) throw new Error('Missing userId parameter');
+    if (!oppData) throw new Error('Missing opportunity data');
+
     const opportunities = getTable('mock_opportunities');
-    const idx = opportunities.findIndex(o => o.id === opp.id);
-    if (idx !== -1) {
-      opportunities[idx] = { ...opportunities[idx], ...opp };
+    const oppId = oppData.id || oppData.opportunityId || ('opp_' + Math.random().toString(36).substr(2, 9));
+    const idx = opportunities.findIndex(o => (o.id === oppId || o.opportunityId === oppId));
+
+    if (idx !== -1 && opportunities[idx].userId && opportunities[idx].userId !== userId) {
+      throw new Error("Unauthorized: cannot modify another user's opportunity");
+    }
+
+    const title = oppData.title || oppData.clientName || (idx !== -1 ? opportunities[idx].title : '');
+    if (!title || String(title).trim() === '') {
+      throw new Error('Opportunity title is required');
+    }
+
+    const stage = oppData.stage || (idx !== -1 ? opportunities[idx].stage : 'New Leads');
+    const isStageChanged = idx !== -1 && oppData.stage && oppData.stage !== opportunities[idx].stage;
+    const defaultProbabilities = {
+      'New Leads': 10,
+      'Qualified Leads': 30,
+      'Meetings': 50,
+      'Proposals': 70,
+      'Negotiations': 80,
+      'Confirmed': 100,
+      'Lost': 0
+    };
+
+    let prob;
+    if (oppData.probability !== undefined && oppData.probability !== null && !isNaN(Number(oppData.probability))) {
+      prob = Number(oppData.probability);
+    } else if (isStageChanged) {
+      prob = defaultProbabilities[stage] ?? 10;
+    } else if (idx !== -1 && opportunities[idx].probability !== undefined) {
+      prob = Number(opportunities[idx].probability);
     } else {
-      opportunities.push({
-        id: opp.id || 'opp_' + Math.random().toString(36).substr(2, 9),
-        ...opp
-      });
+      prob = defaultProbabilities[stage] ?? 10;
+    }
+    prob = Math.max(0, Math.min(100, prob));
+
+    const val = oppData.value !== undefined ? Number(oppData.value) : (idx !== -1 ? Number(opportunities[idx].value) || 0 : 0);
+    if (isNaN(val) || val < 0) {
+      throw new Error('Opportunity value must be greater than or equal to 0');
+    }
+
+    const now = new Date().toISOString();
+    const existing = idx !== -1 ? opportunities[idx] : null;
+    let status = oppData.status;
+    if (!status) {
+      if (stage === 'Confirmed') status = 'Won';
+      else if (stage === 'Lost') status = 'Lost';
+      else status = existing ? existing.status : 'Open';
+    }
+
+    const saved = {
+      id: oppId,
+      opportunityId: oppId,
+      userId,
+      title: String(title).trim(),
+      clientName: String(title).trim(),
+      contactName: oppData.contactName !== undefined ? oppData.contactName : (existing ? existing.contactName : ''),
+      source: oppData.source !== undefined ? oppData.source : (existing ? existing.source : 'Other'),
+      stage,
+      value: val,
+      probability: prob,
+      expectedCloseDate: oppData.expectedCloseDate !== undefined ? oppData.expectedCloseDate : (existing ? existing.expectedCloseDate : ''),
+      linkedGoalId: oppData.linkedGoalId !== undefined ? oppData.linkedGoalId : (existing ? existing.linkedGoalId : ''),
+      status,
+      notes: oppData.notes !== undefined ? oppData.notes : (existing ? existing.notes : ''),
+      createdAt: existing ? (existing.createdAt || now) : now,
+      updatedAt: now
+    };
+
+    if (idx !== -1) {
+      opportunities[idx] = saved;
+    } else {
+      opportunities.unshift(saved);
     }
     saveTable('mock_opportunities', opportunities);
-    return true;
+    return Object.assign({}, saved, { success: true, opportunity: saved });
+  },
+
+  updateOpportunity: (userId, opp) => {
+    return mockDb.saveOpportunity(userId, opp).opportunity;
   },
 
   deleteOpportunity: (userId, oppId) => {
+    if (!userId || !oppId) throw new Error('Missing userId or oppId');
     const opportunities = getTable('mock_opportunities');
-    const filtered = opportunities.filter(o => o.id !== oppId);
+    const existing = opportunities.find(o => (o.id === oppId || o.opportunityId === oppId));
+    if (!existing) throw new Error('Opportunity not found');
+    if (existing.userId && existing.userId !== userId) {
+      throw new Error("Unauthorized: cannot delete another user's opportunity");
+    }
+
+    const filtered = opportunities.filter(o => (o.id !== oppId && o.opportunityId !== oppId));
     saveTable('mock_opportunities', filtered);
-    return true;
+    return { success: true, message: 'Opportunity deleted', oppId };
   },
 
   updateTimeAllocation: (userId, date, category, hours) => {
@@ -1271,6 +1370,7 @@ export const mockDb = {
       category: taskData.category || (existing ? existing.category : 'General'),
       projectArea: taskData.projectArea !== undefined ? taskData.projectArea : (existing ? existing.projectArea : ''),
       linkedGoalId: taskData.linkedGoalId !== undefined ? taskData.linkedGoalId : (existing ? existing.linkedGoalId : ''),
+      linkedOpportunityId: taskData.linkedOpportunityId !== undefined ? taskData.linkedOpportunityId : (existing ? (existing.linkedOpportunityId || '') : ''),
       priority: taskData.priority || (existing ? existing.priority : 'Medium'),
       status,
       estimatedDuration: taskData.estimatedDuration !== undefined ? Number(taskData.estimatedDuration) : (existing ? existing.estimatedDuration : 0),
@@ -1411,6 +1511,198 @@ export const mockDb = {
 
     saveTable('mock_reviews', reviews);
     return { success: true, review: payload };
+  },
+
+  // 17. CONTROLLED AUTOMATION CONTROLLERS (PHASE 8)
+  getAutomationRuns: (userId, limit = 20) => {
+    if (!userId) throw new Error('Missing userId parameter');
+    const runs = getTable('mock_automation_runs').filter(r => r.userId === userId);
+    runs.sort((a, b) => new Date(b.startedAt || 0) - new Date(a.startedAt || 0));
+    return { success: true, runs: runs.slice(0, Number(limit) || 20) };
+  },
+
+  getPendingActions: (userId) => {
+    if (!userId) throw new Error('Missing userId parameter');
+    const runs = getTable('mock_automation_runs').filter(r => r.userId === userId && (r.status === 'PENDING_APPROVAL' || r.status === 'AWAITING_APPROVAL'));
+    const pendingList = [];
+    runs.forEach(r => {
+      (r.pendingActions || []).forEach(act => {
+        pendingList.push({
+          runId: r.runId,
+          workflowType: r.workflowType,
+          actionId: act.actionId,
+          actionType: act.actionType,
+          status: act.status || 'PENDING_APPROVAL',
+          permissionCategory: act.permissionCategory || 'USER_APPROVED_WRITE',
+          reason: act.reason,
+          proposedTask: act.proposedTask || act.actionPayload,
+          actionPayload: act.actionPayload || act.proposedTask,
+          createdAt: r.startedAt
+        });
+      });
+    });
+    return { success: true, pendingActions: pendingList };
+  },
+
+  executeAutomation: (userId, workflowType, triggerType = 'MANUAL', inputPayload = {}) => {
+    if (!userId || !workflowType) throw new Error('Missing userId or workflowType');
+    const runs = getTable('mock_automation_runs');
+    const now = new Date().toISOString();
+    const dateKey = (inputPayload.planDate || inputPayload.targetDateStr || inputPayload.referenceDate || now.split('T')[0]).trim();
+    const idempotencyKey = `auto_${workflowType}_${userId}_${dateKey}`;
+
+    // Duplicate protection
+    const recent = runs.find(r => r.userId === userId && r.idempotencyKey === idempotencyKey);
+    if (recent) {
+      return { success: true, isDuplicate: true, isCached: true, message: `Workflow already executed for today (${dateKey}).`, run: recent };
+    }
+
+    let draftOutput = inputPayload.draftOutput || null;
+    let pendingActions = Array.isArray(inputPayload.pendingActions) ? inputPayload.pendingActions : null;
+
+    if (!draftOutput && !pendingActions) {
+      if (workflowType === 'auto_morning_plan') {
+        const res = executeMorningPlanWorkflow({
+          userId,
+          tasks: inputPayload.tasks || mockDb.getTasks(userId).tasks,
+          goals: inputPayload.goals || [],
+          calendarEvents: inputPayload.calendarEvents || [],
+          existingPlan: inputPayload.dailyPlan || inputPayload.existingPlan || null,
+          targetDateStr: dateKey
+        });
+        draftOutput = res.draftOutput;
+        pendingActions = res.pendingActions;
+      } else if (workflowType === 'auto_evening_review') {
+        const res = executeEveningReviewWorkflow({
+          userId,
+          tasks: inputPayload.tasks || mockDb.getTasks(userId).tasks,
+          dailyPlan: inputPayload.dailyPlan || null,
+          targetDateStr: dateKey
+        });
+        draftOutput = res.draftOutput;
+        pendingActions = res.pendingActions;
+      } else if (workflowType === 'auto_followup_suggestions') {
+        const res = executeFollowupSuggestionsWorkflow({
+          userId,
+          tasks: inputPayload.tasks || mockDb.getTasks(userId).tasks,
+          goals: inputPayload.goals || [],
+          targetDateStr: dateKey,
+          referenceDate: inputPayload.referenceDate || dateKey
+        });
+        draftOutput = res.draftOutput;
+        pendingActions = res.pendingActions;
+      } else if (workflowType === 'auto_weekly_review') {
+        const res = executeWeeklyReviewWorkflow({
+          userId,
+          tasks: inputPayload.tasks || mockDb.getTasks(userId).tasks,
+          dailyPlans: inputPayload.dailyPlans || [],
+          goals: inputPayload.goals || [],
+          targetDateStr: dateKey,
+          weekKey: inputPayload.weekKey || null
+        });
+        draftOutput = res.draftOutput;
+        pendingActions = res.pendingActions;
+      }
+    }
+
+    const runId = `run_${dateKey}_` + Math.random().toString(36).substr(2, 7);
+    const finalPendingActions = Array.isArray(pendingActions) ? pendingActions : [];
+    const finalDraftOutput = draftOutput || {};
+    const status = finalPendingActions.length > 0 ? 'PENDING_APPROVAL' : 'COMPLETED';
+
+    const record = {
+      runId,
+      userId,
+      automationId: workflowType,
+      workflowType,
+      triggerType,
+      status,
+      idempotencyKey,
+      draftOutput: finalDraftOutput,
+      pendingActions: finalPendingActions,
+      executedActions: [],
+      errorMessage: '',
+      startedAt: now,
+      completedAt: status === 'COMPLETED' ? now : ''
+    };
+
+    runs.unshift(record);
+    saveTable('mock_automation_runs', runs);
+    return { success: true, run: record };
+  },
+
+  approveAction: (userId, runId, actionId, actionType, actionPayload) => {
+    if (!userId || !runId || !actionId) throw new Error('Missing required parameters for action approval');
+    const restricted = ['delete_task', 'delete_review', 'financial_transaction', 'send_email', 'modify_external_calendar', 'execute_arbitrary_code'];
+    if (restricted.includes(actionType)) {
+      throw new Error(`Action '${actionType}' is categorically RESTRICTED by policy.`);
+    }
+
+    const runs = getTable('mock_automation_runs');
+    const runIdx = runs.findIndex(r => r.runId === runId);
+    if (runIdx === -1) throw new Error('Automation run not found');
+    if (runs[runIdx].userId !== userId) throw new Error("Action does not belong to user");
+
+    const pending = runs[runIdx].pendingActions || [];
+    const targetAction = pending.find(a => a.actionId === actionId);
+    if (!targetAction) throw new Error('Pending action not found or already executed');
+
+    let executionResult = null;
+    if (actionType === 'create_task') {
+      const taskData = {
+        ...(actionPayload || targetAction.proposedTask || {}),
+        source: 'Controlled Automation'
+      };
+      executionResult = mockDb.saveTask(userId, taskData);
+    } else if (actionType === 'save_daily_plan') {
+      executionResult = mockDb.saveDailyPlan(userId, actionPayload);
+    } else if (actionType === 'save_review') {
+      executionResult = mockDb.saveReview(userId, actionPayload);
+    } else {
+      throw new Error('Unsupported action type: ' + actionType);
+    }
+
+    const updatedPending = pending.filter(a => a.actionId !== actionId);
+    const executed = runs[runIdx].executedActions || [];
+    executed.push({ actionId, actionType, executedAt: new Date().toISOString() });
+
+    const newStatus = updatedPending.length === 0 ? 'COMPLETED' : 'PENDING_APPROVAL';
+    runs[runIdx].pendingActions = updatedPending;
+    runs[runIdx].executedActions = executed;
+    runs[runIdx].status = newStatus;
+    if (newStatus === 'COMPLETED') runs[runIdx].completedAt = new Date().toISOString();
+
+    saveTable('mock_automation_runs', runs);
+    return {
+      success: true,
+      action: { actionId, status: 'APPROVED' },
+      actionId,
+      status: 'APPROVED',
+      executionResult
+    };
+  },
+
+  rejectAction: (userId, runId, actionId) => {
+    if (!userId || !runId || !actionId) throw new Error('Missing required parameters for action rejection');
+    const runs = getTable('mock_automation_runs');
+    const runIdx = runs.findIndex(r => r.runId === runId);
+    if (runIdx === -1) throw new Error('Automation run not found');
+    if (runs[runIdx].userId !== userId) throw new Error("Action does not belong to user");
+
+    const pending = runs[runIdx].pendingActions || [];
+    const updatedPending = pending.filter(a => a.actionId !== actionId);
+    const newStatus = updatedPending.length === 0 ? 'COMPLETED' : 'PENDING_APPROVAL';
+
+    runs[runIdx].pendingActions = updatedPending;
+    runs[runIdx].status = newStatus;
+    saveTable('mock_automation_runs', runs);
+
+    return {
+      success: true,
+      action: { actionId, status: 'REJECTED' },
+      actionId,
+      status: 'REJECTED'
+    };
   }
 };
 

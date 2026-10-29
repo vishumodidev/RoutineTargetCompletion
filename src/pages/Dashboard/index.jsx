@@ -2,6 +2,8 @@ import { useContext, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import { DashboardContext } from '../../context/DashboardContext';
+import { TaskContext } from '../../context/TaskContext';
+import { calculatePipelineForecast } from '../../utils/forecastEngine';
 import { 
   Trophy, 
   Zap, 
@@ -35,7 +37,8 @@ import {
   Landmark,
   ShieldCheck,
   PiggyBank,
-  Wallet
+  Wallet,
+  Briefcase
 } from 'lucide-react';
 import { getLevelDetails } from '../../utils';
 import { InvestmentContext } from '../../context/InvestmentContext';
@@ -44,6 +47,7 @@ import toast from 'react-hot-toast';
 export default function Dashboard() {
   const { user, updateUserProfile } = useContext(AuthContext);
   const { summary, cashFlow } = useContext(InvestmentContext);
+  const { tasks = [], createTask } = useContext(TaskContext) || {};
   const { 
     todayBigFive, 
     opportunities, 
@@ -61,9 +65,11 @@ export default function Dashboard() {
   // Dialog / Edit modes
   const [showAddOpp, setShowAddOpp] = useState(false);
   const [newOppName, setNewOppName] = useState('');
+  const [newOppContact, setNewOppContact] = useState('');
   const [newOppSource, setNewOppSource] = useState('LinkedIn');
   const [newOppStage, setNewOppStage] = useState('New Leads');
   const [newOppValue, setNewOppValue] = useState('');
+  const [newOppCloseDate, setNewOppCloseDate] = useState('');
 
   // AI Mentor Modal state
   const [showMentorReport, setShowMentorReport] = useState(false);
@@ -100,46 +106,27 @@ export default function Dashboard() {
   const { level, xpRemaining, percent } = getLevelDetails(user.xp);
 
   // SECTION 2: Income stats calculation
-  // Confirmed comes from opportunities stage "Confirmed"
-  // Pipeline comes from all opportunities not in "Confirmed"
+  // Confirmed comes from opportunities stage "Confirmed" (Strictly confirmed/won)
+  // Pipeline comes from all open opportunities (Probability-weighted)
   const opportunityStats = useMemo(() => {
-    const opps = opportunities || [];
-    let receivedVal = user.incomeReceived || 75000;
-    let milestoneVal = user.incomeMilestone || 150000;
-    
-    let confirmedVal = 0;
-    let pipelineTotalVal = 0;
-    let pipelineWeightedVal = 0;
-
-    const weights = {
-      'New Leads': 0.1,
-      'Qualified Leads': 0.3,
-      'Meetings': 0.5,
-      'Proposals': 0.7,
-      'Negotiations': 0.8,
-      'Confirmed': 1.0
-    };
-
-    opps.forEach(opp => {
-      const val = Number(opp.value) || 0;
-      const weight = weights[opp.stage] || 0.1;
-      if (opp.stage === 'Confirmed') {
-        confirmedVal += val;
-      } else {
-        pipelineTotalVal += val;
-        pipelineWeightedVal += val * weight;
-      }
-    });
-
+    const forecast = calculatePipelineForecast(opportunities || []);
+    const receivedVal = user.incomeReceived || 75000;
+    const milestoneVal = user.incomeMilestone || 150000;
+    const confirmedVal = forecast.actualRevenue; // Strictly Confirmed/Closed-Won
+    const pipelineTotalVal = forecast.openPipelineTotal;
+    const pipelineWeightedVal = forecast.weightedPipelineForecast;
     const gap = Math.max(0, milestoneVal - receivedVal - confirmedVal);
 
     return {
       received: receivedVal,
       confirmed: confirmedVal,
       pipeline: pipelineTotalVal,
-      weightedPipeline: Math.round(pipelineWeightedVal),
+      weightedPipeline: pipelineWeightedVal,
       milestone: milestoneVal,
-      gap
+      gap,
+      winRatePercent: forecast.winRatePercent,
+      activeDealsCount: forecast.activeDealsCount,
+      overdueDeals: forecast.overdueDeals || []
     };
   }, [opportunities, user.incomeReceived, user.incomeMilestone]);
 
@@ -147,20 +134,64 @@ export default function Dashboard() {
   const handleAddOppSubmit = async (e) => {
     e.preventDefault();
     if (!newOppName.trim()) {
-      toast.error('Client name is required');
+      toast.error('Client or deal title is required');
       return;
     }
     const val = Number(newOppValue) || 0;
     await updateOpportunity({
+      title: newOppName,
       clientName: newOppName,
+      contactName: newOppContact.trim() || undefined,
+      expectedCloseDate: newOppCloseDate || undefined,
       source: newOppSource,
       stage: newOppStage,
       value: val
     });
     setNewOppName('');
+    setNewOppContact('');
     setNewOppValue('');
+    setNewOppCloseDate('');
     setShowAddOpp(false);
     toast.success('Opportunity added to pipeline!');
+  };
+
+  // Create follow-up task directly connected to this opportunity
+  const handleCreateFollowupTask = async (opp) => {
+    if (!createTask) {
+      toast.error('Task creation is not available');
+      return;
+    }
+    try {
+      const oppTitle = opp.title || opp.clientName || 'Opportunity';
+      const val = Number(opp.value || 0);
+      let incomeImpact = 'Low';
+      if (val >= 80000) incomeImpact = 'Critical';
+      else if (val >= 35000) incomeImpact = 'High';
+      else if (val >= 15000) incomeImpact = 'Medium';
+
+      const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+      const dueDate = opp.expectedCloseDate || tomorrow;
+
+      await createTask({
+        title: `Follow up: ${oppTitle}`,
+        description: `Follow up on pipeline deal '${oppTitle}' currently at stage '${opp.stage}' (Deal value: ₹${val.toLocaleString('en-IN')})`,
+        category: 'Business Development',
+        projectArea: 'Opportunity Pipeline',
+        linkedOpportunityId: opp.id,
+        incomeImpact,
+        importance: opp.stage === 'Negotiations' || opp.stage === 'Proposals' ? 85 : 70,
+        urgency: 75,
+        readiness: 100,
+        dueDate,
+        deadlineType: 'Hard',
+        estimatedDuration: 30,
+        nextAction: `Contact ${opp.contactName || opp.clientName || 'prospect'} regarding ${opp.stage} next step`
+      });
+      toast.success(`Follow-up task created for ${oppTitle}!`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to create follow-up task');
+    }
   };
 
   // Stage changes on the fly
@@ -772,18 +803,32 @@ Tell me:
           </div>
 
           {/* Summary Indicators */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="p-2.5 bg-bg-dark/45 border border-border-dark rounded-lg text-center">
-              <span className="text-[8px] font-bold text-text-secondary uppercase">Confirmed Upcoming</span>
-              <p className="text-sm font-black text-white mt-0.5">₹{opportunityStats.confirmed.toLocaleString('en-IN')}</p>
+          <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-2.5 bg-bg-dark/45 border border-border-dark rounded-lg text-center">
+                <span className="text-[8px] font-bold text-text-secondary uppercase">Confirmed Realized</span>
+                <p className="text-sm font-black text-emerald-400 mt-0.5">₹{opportunityStats.confirmed.toLocaleString('en-IN')}</p>
+              </div>
+              <div className="p-2.5 bg-bg-dark/45 border border-border-dark rounded-lg text-center">
+                <span className="text-[8px] font-bold text-text-secondary uppercase">Open Pipeline</span>
+                <p className="text-sm font-black text-text-secondary mt-0.5">₹{opportunityStats.pipeline.toLocaleString('en-IN')}</p>
+              </div>
+              <div className="p-2.5 bg-bg-dark/45 border border-border-dark rounded-lg text-center">
+                <span className="text-[8px] font-bold text-text-secondary uppercase">Weighted Forecast</span>
+                <p className="text-sm font-black text-indigo-400 mt-0.5">₹{opportunityStats.weightedPipeline.toLocaleString('en-IN')}</p>
+              </div>
             </div>
-            <div className="p-2.5 bg-bg-dark/45 border border-border-dark rounded-lg text-center">
-              <span className="text-[8px] font-bold text-text-secondary uppercase">Open Pipeline</span>
-              <p className="text-sm font-black text-text-secondary mt-0.5">₹{opportunityStats.pipeline.toLocaleString('en-IN')}</p>
-            </div>
-            <div className="p-2.5 bg-bg-dark/45 border border-border-dark rounded-lg text-center">
-              <span className="text-[8px] font-bold text-text-secondary uppercase">Weighted Pipeline</span>
-              <p className="text-sm font-black text-indigo-400 mt-0.5">₹{opportunityStats.weightedPipeline.toLocaleString('en-IN')}</p>
+
+            <div className="flex items-center justify-between text-3xs text-text-secondary px-1">
+              <span>
+                Win Rate: <strong className="text-white">{opportunityStats.winRatePercent}%</strong> • Active Deals: <strong className="text-white">{opportunityStats.activeDealsCount}</strong>
+              </span>
+              {opportunityStats.overdueDeals.length > 0 && (
+                <span className="text-rose-400 font-bold flex items-center">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  {opportunityStats.overdueDeals.length} deal{opportunityStats.overdueDeals.length > 1 ? 's' : ''} past close date
+                </span>
+              )}
             </div>
           </div>
 
@@ -792,16 +837,29 @@ Tell me:
             <form onSubmit={handleAddOppSubmit} className="p-4 bg-bg-dark/60 border border-border-dark rounded-xl space-y-3.5">
               <div className="grid grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-3xs font-bold text-text-secondary uppercase mb-1">Lead Name</label>
+                  <label className="block text-3xs font-bold text-text-secondary uppercase mb-1">Lead / Client Name</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Corporate HR"
+                    placeholder="e.g. Corporate Training - TechCorp"
                     value={newOppName}
                     onChange={(e) => setNewOppName(e.target.value)}
                     className="w-full bg-bg-input border border-border-dark rounded-lg p-2 text-2xs text-white"
                   />
                 </div>
+                <div>
+                  <label className="block text-3xs font-bold text-text-secondary uppercase mb-1">Contact Person</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Priya Sharma"
+                    value={newOppContact}
+                    onChange={(e) => setNewOppContact(e.target.value)}
+                    className="w-full bg-bg-input border border-border-dark rounded-lg p-2 text-2xs text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3.5">
                 <div>
                   <label className="block text-3xs font-bold text-text-secondary uppercase mb-1">Source</label>
                   <select
@@ -814,9 +872,6 @@ Tell me:
                     ))}
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-3xs font-bold text-text-secondary uppercase mb-1">Pipeline Stage</label>
                   <select
@@ -841,6 +896,16 @@ Tell me:
                 </div>
               </div>
 
+              <div>
+                <label className="block text-3xs font-bold text-text-secondary uppercase mb-1">Expected Close Date</label>
+                <input
+                  type="date"
+                  value={newOppCloseDate}
+                  onChange={(e) => setNewOppCloseDate(e.target.value)}
+                  className="w-full bg-bg-input border border-border-dark rounded-lg p-2 text-2xs text-white"
+                />
+              </div>
+
               <div className="flex justify-end space-x-2 pt-2">
                 <button
                   type="button"
@@ -860,49 +925,86 @@ Tell me:
           )}
 
           {/* Opportunities Funnel List */}
-          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
             {opportunities.length === 0 ? (
               <p className="text-2xs text-text-secondary text-center py-6">No pipeline opportunities loaded.</p>
             ) : (
-              opportunities.map(opp => (
-                <div key={opp.id} className="p-3 bg-bg-dark/20 border border-border-dark rounded-xl flex items-center justify-between gap-3 text-2xs hover:bg-bg-dark/35">
-                  <div className="min-w-0">
-                    <div className="flex items-center space-x-1.5">
-                      <span className="font-extrabold text-white truncate">{opp.clientName}</span>
-                      <span className="text-[8px] bg-bg-input text-text-secondary px-1.5 py-0.5 rounded font-black border border-border-dark">
-                        {opp.source}
-                      </span>
+              opportunities.map(opp => {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const isOverdue = opp.expectedCloseDate && opp.expectedCloseDate < todayStr && opp.stage !== 'Confirmed' && opp.stage !== 'Lost';
+                const linkedTasks = (tasks || []).filter(t => t.linkedOpportunityId === opp.id);
+                const prob = opp.probability !== undefined 
+                  ? opp.probability 
+                  : (opp.stage === 'Confirmed' ? 100 : opp.stage === 'Negotiations' ? 80 : opp.stage === 'Proposals' ? 70 : opp.stage === 'Meetings' ? 50 : opp.stage === 'Qualified Leads' ? 30 : 10);
+
+                return (
+                  <div key={opp.id} className="p-3 bg-bg-dark/20 border border-border-dark rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-2xs hover:bg-bg-dark/35 transition">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-extrabold text-white truncate">{opp.title || opp.clientName}</span>
+                        <span className="text-[8px] bg-bg-input text-text-secondary px-1.5 py-0.5 rounded font-black border border-border-dark">
+                          {opp.source}
+                        </span>
+                        <span className="text-[8px] bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded font-black border border-indigo-500/20">
+                          {prob}% prob
+                        </span>
+                        {isOverdue && (
+                          <span className="text-[8px] bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded font-black border border-rose-500/30">
+                            Overdue Close
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 mt-1.5 text-3xs text-text-secondary">
+                        <span className="text-emerald-400 font-bold">₹{Number(opp.value || 0).toLocaleString('en-IN')}</span>
+                        {opp.contactName && <span>Contact: {opp.contactName}</span>}
+                        {opp.expectedCloseDate && <span>Target Close: {opp.expectedCloseDate}</span>}
+                        {linkedTasks.length > 0 && (
+                          <span className="text-cyan-400 font-semibold flex items-center">
+                            <CheckSquare className="h-3 w-3 mr-0.5" />
+                            {linkedTasks.length} linked task{linkedTasks.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-3xs text-emerald-400 block mt-1 font-semibold">Value: ₹{opp.value?.toLocaleString('en-IN') || 0}</span>
-                  </div>
 
-                  {/* Stage Quick Switcher */}
-                  <div className="flex items-center space-x-2">
-                    <select
-                      value={opp.stage}
-                      onChange={(e) => handleStageChange(opp, e.target.value)}
-                      className="bg-bg-input border border-border-dark rounded-lg text-3xs font-extrabold px-2 py-1 text-white"
-                    >
-                      {['New Leads', 'Qualified Leads', 'Meetings', 'Proposals', 'Negotiations', 'Confirmed'].map(s => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
+                    {/* Actions: Follow-up Task + Stage Switcher + Delete */}
+                    <div className="flex items-center space-x-2 shrink-0 self-end sm:self-center">
+                      <button
+                        onClick={() => handleCreateFollowupTask(opp)}
+                        className="px-2 py-1 bg-brand-primary/15 hover:bg-brand-primary text-brand-primary hover:text-white border border-brand-primary/30 rounded-lg text-3xs font-bold transition flex items-center space-x-1 cursor-pointer"
+                        title="Create follow-up task in Task Manager"
+                      >
+                        <Plus className="h-3 w-3" />
+                        <span>Follow-up</span>
+                      </button>
 
-                    <button
-                      onClick={() => {
-                        if (confirm('Delete opportunity?')) {
-                          deleteOpportunity(opp.id);
-                          toast.error('Opportunity removed');
-                        }
-                      }}
-                      className="p-1 text-text-secondary hover:text-red-400 rounded-lg hover:bg-red-500/10 transition"
-                      title="Remove"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                      <select
+                        value={opp.stage}
+                        onChange={(e) => handleStageChange(opp, e.target.value)}
+                        className="bg-bg-input border border-border-dark rounded-lg text-3xs font-extrabold px-2 py-1 text-white cursor-pointer"
+                      >
+                        {['New Leads', 'Qualified Leads', 'Meetings', 'Proposals', 'Negotiations', 'Confirmed'].map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+
+                      <button
+                        onClick={() => {
+                          if (confirm('Delete opportunity?')) {
+                            deleteOpportunity(opp.id);
+                            toast.error('Opportunity removed');
+                          }
+                        }}
+                        className="p-1 text-text-secondary hover:text-red-400 rounded-lg hover:bg-red-500/10 transition cursor-pointer"
+                        title="Remove"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { useContext, useState } from 'react';
 import { TaskContext } from '../../context/TaskContext';
 import { InvestmentContext } from '../../context/InvestmentContext';
+import { DashboardContext } from '../../context/DashboardContext';
 import { 
   TASK_CATEGORIES, 
   TASK_STATUSES, 
@@ -28,7 +29,8 @@ import {
   Info,
   ArrowUpDown,
   AlertTriangle,
-  ShieldAlert
+  ShieldAlert,
+  Briefcase
 } from 'lucide-react';
 
 export default function Tasks() {
@@ -51,6 +53,8 @@ export default function Tasks() {
   } = useContext(TaskContext);
 
   const { goals } = useContext(InvestmentContext);
+  const dashboard = useContext(DashboardContext);
+  const opportunities = dashboard?.opportunities || [];
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -63,6 +67,7 @@ export default function Tasks() {
     category: 'AI Agent Development',
     projectArea: '',
     linkedGoalId: '',
+    linkedOpportunityId: '',
     priority: 'Medium',
     status: 'Planned',
     estimatedDuration: 60,
@@ -87,6 +92,7 @@ export default function Tasks() {
       category: 'AI Agent Development',
       projectArea: '',
       linkedGoalId: '',
+      linkedOpportunityId: '',
       priority: 'Medium',
       status: 'Planned',
       estimatedDuration: 60,
@@ -113,6 +119,7 @@ export default function Tasks() {
       category: task.category || 'General',
       projectArea: task.projectArea || '',
       linkedGoalId: task.linkedGoalId || '',
+      linkedOpportunityId: task.linkedOpportunityId || '',
       priority: task.priority || 'Medium',
       status: task.status || 'Planned',
       estimatedDuration: task.estimatedDuration || 0,
@@ -326,6 +333,7 @@ export default function Tasks() {
             const isCompleted = task.status === 'Completed';
             const isOverdue = task.dueDate && task.dueDate < todayStr && !isCompleted;
             const linkedGoal = goals.find(g => g.id === task.linkedGoalId);
+            const linkedOpp = opportunities.find(o => o.id === task.linkedOpportunityId);
             const scoreDetails = getPriorityScoreBadge(task.priorityScore, task.priorityBand);
 
             return (
@@ -444,6 +452,14 @@ export default function Tasks() {
                           <span className="flex items-center text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
                             <Target className="h-3 w-3 mr-1" />
                             {linkedGoal.name}
+                          </span>
+                        )}
+
+                        {/* Linked Opportunity */}
+                        {linkedOpp && (
+                          <span className="flex items-center text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20" title={`Sales Pipeline: ${linkedOpp.stage}`}>
+                            <Briefcase className="h-3 w-3 mr-1" />
+                            {linkedOpp.title || linkedOpp.clientName} (₹{Number(linkedOpp.value || 0).toLocaleString('en-IN')})
                           </span>
                         )}
                       </div>
@@ -818,6 +834,25 @@ export default function Tasks() {
                   {goals.map(g => (
                     <option key={g.id} value={g.id}>
                       {g.name} ({g.category})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Linked Opportunity / Sales Lead */}
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
+                  Linked Opportunity / Sales Lead
+                </label>
+                <select
+                  value={formData.linkedOpportunityId || ''}
+                  onChange={(e) => setFormData({ ...formData, linkedOpportunityId: e.target.value })}
+                  className="w-full bg-bg-input border border-border-dark rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-brand-primary"
+                >
+                  <option value="">None (Independent task)</option>
+                  {opportunities.map(opp => (
+                    <option key={opp.id} value={opp.id}>
+                      {opp.title || opp.clientName} ({opp.stage} • ₹{Number(opp.value || 0).toLocaleString('en-IN')})
                     </option>
                   ))}
                 </select>
