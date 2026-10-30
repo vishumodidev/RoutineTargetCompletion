@@ -1,5 +1,5 @@
-import api from './api';
-import { mockDb } from '../utils/mockDb';
+import api from './api.js';
+import { mockDb } from '../utils/mockDb.js';
 
 const isSheetsEnabled = typeof import.meta !== 'undefined' && !!import.meta?.env?.VITE_API_URL;
 

@@ -1,8 +1,8 @@
-import { auth, db, isFirebaseEnabled } from './firebase';
+import { auth, db, isFirebaseEnabled } from './firebase.js';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { mockDb } from '../utils/mockDb';
-import api from './api';
+import { mockDb } from '../utils/mockDb.js';
+import api from './api.js';
 
 const isSheetsEnabled = typeof import.meta !== 'undefined' && !!import.meta?.env?.VITE_API_URL;
 

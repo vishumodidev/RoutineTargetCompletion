@@ -2,12 +2,12 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
-const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
-const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
-const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
-const appId = import.meta.env.VITE_FIREBASE_APP_ID;
+const apiKey = typeof import.meta !== 'undefined' ? import.meta?.env?.VITE_FIREBASE_API_KEY : undefined;
+const authDomain = typeof import.meta !== 'undefined' ? import.meta?.env?.VITE_FIREBASE_AUTH_DOMAIN : undefined;
+const projectId = typeof import.meta !== 'undefined' ? import.meta?.env?.VITE_FIREBASE_PROJECT_ID : undefined;
+const storageBucket = typeof import.meta !== 'undefined' ? import.meta?.env?.VITE_FIREBASE_STORAGE_BUCKET : undefined;
+const messagingSenderId = typeof import.meta !== 'undefined' ? import.meta?.env?.VITE_FIREBASE_MESSAGING_SENDER_ID : undefined;
+const appId = typeof import.meta !== 'undefined' ? import.meta?.env?.VITE_FIREBASE_APP_ID : undefined;
 
 // Determine if Firebase is configured
 export const isFirebaseEnabled = !!(

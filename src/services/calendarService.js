@@ -1,12 +1,12 @@
-import { db, isFirebaseEnabled } from './firebase';
+import { db, isFirebaseEnabled } from './firebase.js';
 import { 
   collection, 
   getDocs, 
   query, 
   where 
 } from 'firebase/firestore';
-import { mockDb } from '../utils/mockDb';
-import api from './api';
+import { mockDb } from '../utils/mockDb.js';
+import api from './api.js';
 
 const isSheetsEnabled = typeof import.meta !== 'undefined' && !!import.meta?.env?.VITE_API_URL;
 

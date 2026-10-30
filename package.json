@@ -8,7 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --test test/tasks.test.js test/priorityEngine.test.js test/dailyPlanner.test.js test/reviews.test.js test/googleIntegration.test.js test/aiReasoning.test.js test/e2eRegression.test.js test/automation.test.js test/opportunities.test.js test/businessMentor.test.js test/qaTesterSuite.test.js"
+    "test": "node --test test/tasks.test.js test/priorityEngine.test.js test/dailyPlanner.test.js test/reviews.test.js test/googleIntegration.test.js test/aiReasoning.test.js test/e2eRegression.test.js test/automation.test.js test/opportunities.test.js test/businessMentor.test.js test/financialAndHabits.test.js test/contextsAndServices.test.js test/backendAppsScript.test.js test/securityAndAdversarial.test.js test/qaTesterSuite.test.js",
+    "test:ci": "node --test test/*.test.js",
+    "test:watch": "node --test --watch test/*.test.js"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",
